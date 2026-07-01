@@ -36,7 +36,11 @@ class TedsAlarmsSensor(_Base):
 
     @property
     def extra_state_attributes(self):
-        return {"alarms": self._m.alarms}
+        # Return a fresh list of copies each read: the manager mutates its own
+        # list in place, and returning that live reference makes HA compare the
+        # new state against an already-mutated "old" state, so attribute-only
+        # changes (e.g. editing an alarm) can fail to fire a state update.
+        return {"alarms": [dict(a) for a in self._m.alarms]}
 
 
 class TedsTimersSensor(_Base):
@@ -59,5 +63,5 @@ class TedsTimersSensor(_Base):
                 }
                 for t in self._m.active.values()
             ],
-            "recent": self._m.recent,
+            "recent": [dict(r) for r in self._m.recent],
         }
