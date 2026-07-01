@@ -38,6 +38,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def cancel_timer(call: ServiceCall):
         manager.cancel_timer(call.data["id"])
 
+    async def pause_timer(call: ServiceCall):
+        manager.pause_timer(call.data["id"])
+
+    async def resume_timer(call: ServiceCall):
+        manager.resume_timer(call.data["id"])
+
+    async def update_timer(call: ServiceCall):
+        manager.update_timer(
+            call.data["id"], name=call.data.get("name"),
+            hours=call.data.get("hours"), minutes=call.data.get("minutes"), seconds=call.data.get("seconds"),
+        )
+
     hass.services.async_register(DOMAIN, "add_alarm", add_alarm, schema=vol.Schema({
         vol.Required("label"): cv.string, vol.Required("time"): cv.string,
         vol.Optional("days"): [int], vol.Optional("description"): cv.string, vol.Optional("enabled"): cv.boolean}))
@@ -46,6 +58,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "start_timer", start_timer, schema=vol.Schema({
         vol.Required("name"): cv.string, vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int}))
     hass.services.async_register(DOMAIN, "cancel_timer", cancel_timer, schema=vol.Schema({vol.Required("id"): cv.string}))
+    hass.services.async_register(DOMAIN, "pause_timer", pause_timer, schema=vol.Schema({vol.Required("id"): cv.string}))
+    hass.services.async_register(DOMAIN, "resume_timer", resume_timer, schema=vol.Schema({vol.Required("id"): cv.string}))
+    hass.services.async_register(DOMAIN, "update_timer", update_timer, schema=vol.Schema({
+        vol.Required("id"): cv.string, vol.Optional("name"): cv.string,
+        vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int}))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

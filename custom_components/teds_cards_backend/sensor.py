@@ -51,6 +51,13 @@ class TedsTimersSensor(_Base):
     @property
     def extra_state_attributes(self):
         return {
-            "active": [{"id": t["id"], "name": t["name"], "ends": t["ends"]} for t in self._m.active.values()],
+            "active": [
+                {
+                    "id": t["id"], "name": t["name"], "ends": t["ends"],
+                    "duration": t.get("duration", 0), "remaining": t.get("remaining", 0),
+                    "paused": t.get("paused", False),
+                }
+                for t in self._m.active.values()
+            ],
             "recent": self._m.recent,
         }

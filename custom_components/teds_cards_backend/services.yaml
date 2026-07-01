@@ -25,3 +25,19 @@ cancel_timer:
   name: Cancel timer
   fields:
     id: { required: true, selector: { text: {} } }
+pause_timer:
+  name: Pause timer
+  fields:
+    id: { required: true, selector: { text: {} } }
+resume_timer:
+  name: Resume timer
+  fields:
+    id: { required: true, selector: { text: {} } }
+update_timer:
+  name: Update timer
+  fields:
+    id: { required: true, selector: { text: {} } }
+    name: { selector: { text: {} } }
+    hours: { selector: { number: { min: 0, max: 23 } } }
+    minutes: { selector: { number: { min: 0, max: 59 } } }
+    seconds: { selector: { number: { min: 0, max: 59 } } }

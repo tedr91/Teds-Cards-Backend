@@ -45,7 +45,8 @@ class TedsManager:
         for unsub in self._listeners:
             unsub()
         for t in self.active.values():
-            t["cancel"]()
+            if t.get("cancel"):
+                t["cancel"]()
 
     # ── alarms ──────────────────────────────────────────────
     async def add_alarm(self, label, time, days, description="", enabled=True):
@@ -87,16 +88,60 @@ class TedsManager:
         tid = uuid.uuid4().hex
         ends = dt_util.utcnow() + timedelta(seconds=secs)
         cancel = async_call_later(self.hass, secs, lambda *_: self._finish(tid))
-        self.active[tid] = {"id": tid, "name": name, "ends": ends.isoformat(), "cancel": cancel}
+        self.active[tid] = {
+            "id": tid, "name": name, "ends": ends.isoformat(),
+            "duration": secs, "remaining": secs, "paused": False, "cancel": cancel,
+        }
         self.recent = [{"name": name, "h": hours, "m": minutes, "s": seconds}] + [
             r for r in self.recent if not (r["h"] == hours and r["m"] == minutes and r["s"] == seconds and r["name"] == name)
         ][: RECENT_TIMERS_MAX - 1]
         await self._save()
         self._notify()
 
+    def pause_timer(self, tid):
+        t = self.active.get(tid)
+        if not t or t.get("paused"):
+            return
+        if t.get("cancel"):
+            t["cancel"]()
+            t["cancel"] = None
+        ends = dt_util.parse_datetime(t["ends"])
+        remaining = (ends - dt_util.utcnow()).total_seconds() if ends else t.get("remaining", 0)
+        t["remaining"] = max(0, int(round(remaining)))
+        t["paused"] = True
+        self._notify()
+
+    def resume_timer(self, tid):
+        t = self.active.get(tid)
+        if not t or not t.get("paused"):
+            return
+        secs = max(0, int(t.get("remaining", 0)))
+        t["ends"] = (dt_util.utcnow() + timedelta(seconds=secs)).isoformat()
+        t["paused"] = False
+        t["cancel"] = async_call_later(self.hass, secs, lambda *_: self._finish(tid))
+        self._notify()
+
+    def update_timer(self, tid, name=None, hours=None, minutes=None, seconds=None):
+        t = self.active.get(tid)
+        if not t:
+            return
+        if name is not None:
+            t["name"] = name
+        if hours is not None or minutes is not None or seconds is not None:
+            secs = (hours or 0) * 3600 + (minutes or 0) * 60 + (seconds or 0)
+            t["duration"] = secs
+            t["remaining"] = secs
+            if t.get("cancel"):
+                t["cancel"]()
+                t["cancel"] = None
+            t["ends"] = (dt_util.utcnow() + timedelta(seconds=secs)).isoformat()
+            if not t.get("paused"):
+                t["cancel"] = async_call_later(self.hass, secs, lambda *_: self._finish(tid))
+        self._notify()
+
     def cancel_timer(self, tid):
         t = self.active.pop(tid, None)
-        if t:
+        if t and t.get("cancel"):
             t["cancel"]()
         self._notify()
 
