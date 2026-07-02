@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.event import async_call_later, async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -49,7 +50,7 @@ class TedsManager:
                 t["cancel"]()
 
     # ── alarms ──────────────────────────────────────────────
-    async def add_alarm(self, label, time, days, description="", enabled=True):
+    async def add_alarm(self, label, time, days, description="", enabled=True, location=None):
         self.alarms.append({
             "id": uuid.uuid4().hex,
             "label": label,
@@ -57,6 +58,7 @@ class TedsManager:
             "time": time,
             "days": days or [0, 1, 2, 3, 4, 5, 6],
             "enabled": enabled,
+            "location": location,
         })
         await self._save()
         self._notify()
@@ -80,10 +82,23 @@ class TedsManager:
         hhmm = local.strftime("%H:%M")
         for a in self.alarms:
             if a.get("enabled") and local.weekday() in a.get("days", []) and a.get("time") == hhmm:
-                self.hass.bus.async_fire(EVENT_ALARM_RINGING, {"id": a["id"], "label": a["label"]})
+                loc = a.get("location")
+                self.hass.bus.async_fire(EVENT_ALARM_RINGING, {
+                    "id": a["id"],
+                    "label": a["label"],
+                    "location": loc,
+                    "area_name": self._area_name(loc),
+                })
+
+    def _area_name(self, location):
+        """Resolve an area_id to its friendly name (None when unknown/unset)."""
+        if not location:
+            return None
+        area = ar.async_get(self.hass).async_get_area(location)
+        return area.name if area else None
 
     # ── timers ──────────────────────────────────────────────
-    async def start_timer(self, name, hours=0, minutes=0, seconds=0):
+    async def start_timer(self, name, hours=0, minutes=0, seconds=0, location=None):
         secs = hours * 3600 + minutes * 60 + seconds
         tid = uuid.uuid4().hex
         ends = dt_util.utcnow() + timedelta(seconds=secs)
@@ -91,9 +106,12 @@ class TedsManager:
         self.active[tid] = {
             "id": tid, "name": name, "ends": ends.isoformat(),
             "duration": secs, "remaining": secs, "paused": False, "cancel": cancel,
+            "location": location,
         }
-        self.recent = [{"name": name, "h": hours, "m": minutes, "s": seconds}] + [
-            r for r in self.recent if not (r["h"] == hours and r["m"] == minutes and r["s"] == seconds and r["name"] == name)
+        self.recent = [{"name": name, "h": hours, "m": minutes, "s": seconds, "location": location}] + [
+            r for r in self.recent
+            if not (r["h"] == hours and r["m"] == minutes and r["s"] == seconds
+                    and r["name"] == name and r.get("location") == location)
         ][: RECENT_TIMERS_MAX - 1]
         await self._save()
         self._notify()
@@ -148,7 +166,13 @@ class TedsManager:
     def _finish(self, tid):
         t = self.active.pop(tid, None)
         if t:
-            self.hass.bus.async_fire(EVENT_TIMER_FINISHED, {"id": tid, "name": t["name"]})
+            loc = t.get("location")
+            self.hass.bus.async_fire(EVENT_TIMER_FINISHED, {
+                "id": tid,
+                "name": t["name"],
+                "location": loc,
+                "area_name": self._area_name(loc),
+            })
         self._notify()
 
     # ── notify sensors ──────────────────────────────────────

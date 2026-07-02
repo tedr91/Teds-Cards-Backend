@@ -59,7 +59,7 @@ class TedsTimersSensor(_Base):
                 {
                     "id": t["id"], "name": t["name"], "ends": t["ends"],
                     "duration": t.get("duration", 0), "remaining": t.get("remaining", 0),
-                    "paused": t.get("paused", False),
+                    "paused": t.get("paused", False), "location": t.get("location"),
                 }
                 for t in self._m.active.values()
             ],

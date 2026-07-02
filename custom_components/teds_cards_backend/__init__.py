@@ -24,16 +24,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await manager.add_alarm(
             call.data["label"], call.data["time"], call.data.get("days"),
             call.data.get("description", ""), call.data.get("enabled", True),
+            call.data.get("location"),
         )
 
     async def update_alarm(call: ServiceCall):
-        await manager.update_alarm(call.data["id"], **{k: call.data.get(k) for k in ("label", "time", "days", "description", "enabled")})
+        await manager.update_alarm(call.data["id"], **{k: call.data.get(k) for k in ("label", "time", "days", "description", "enabled", "location")})
 
     async def remove_alarm(call: ServiceCall):
         await manager.remove_alarm(call.data["id"])
 
     async def start_timer(call: ServiceCall):
-        await manager.start_timer(call.data["name"], call.data.get("hours", 0), call.data.get("minutes", 0), call.data.get("seconds", 0))
+        await manager.start_timer(call.data["name"], call.data.get("hours", 0), call.data.get("minutes", 0), call.data.get("seconds", 0), call.data.get("location"))
 
     async def cancel_timer(call: ServiceCall):
         manager.cancel_timer(call.data["id"])
@@ -52,11 +53,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.services.async_register(DOMAIN, "add_alarm", add_alarm, schema=vol.Schema({
         vol.Required("label"): cv.string, vol.Required("time"): cv.string,
-        vol.Optional("days"): [int], vol.Optional("description"): cv.string, vol.Optional("enabled"): cv.boolean}))
+        vol.Optional("days"): [int], vol.Optional("description"): cv.string, vol.Optional("enabled"): cv.boolean,
+        vol.Optional("location"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "update_alarm", update_alarm, schema=vol.Schema({vol.Required("id"): cv.string}, extra=vol.ALLOW_EXTRA))
     hass.services.async_register(DOMAIN, "remove_alarm", remove_alarm, schema=vol.Schema({vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "start_timer", start_timer, schema=vol.Schema({
-        vol.Required("name"): cv.string, vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int}))
+        vol.Required("name"): cv.string, vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int,
+        vol.Optional("location"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "cancel_timer", cancel_timer, schema=vol.Schema({vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "pause_timer", pause_timer, schema=vol.Schema({vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "resume_timer", resume_timer, schema=vol.Schema({vol.Required("id"): cv.string}))

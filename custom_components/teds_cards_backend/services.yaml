@@ -6,6 +6,7 @@ add_alarm:
     days: { selector: { select: { multiple: true, options: ["0","1","2","3","4","5","6"] } } }
     description: { selector: { text: {} } }
     enabled: { selector: { boolean: {} } }
+    location: { selector: { area: {} } }
 update_alarm:
   name: Update alarm
   fields:
@@ -21,6 +22,7 @@ start_timer:
     hours: { selector: { number: { min: 0, max: 23 } } }
     minutes: { selector: { number: { min: 0, max: 59 } } }
     seconds: { selector: { number: { min: 0, max: 59 } } }
+    location: { selector: { area: {} } }
 cancel_timer:
   name: Cancel timer
   fields:
