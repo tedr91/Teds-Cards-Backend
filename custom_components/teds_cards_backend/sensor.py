@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEntitiesCallback) -> None:
     manager = hass.data[DOMAIN][entry.entry_id]
-    add([TedsAlarmsSensor(manager), TedsTimersSensor(manager)])
+    add([TedsAlarmsSensor(manager), TedsTimersSensor(manager), TedsNotificationsSensor(manager)])
 
 
 class _Base(SensorEntity):
@@ -64,4 +64,22 @@ class TedsTimersSensor(_Base):
                 for t in self._m.active.values()
             ],
             "recent": [dict(r) for r in self._m.recent],
+        }
+
+
+class TedsNotificationsSensor(_Base):
+    _attr_name = "Teds Notifications"
+    _attr_unique_id = "teds_notifications"
+    _attr_icon = "mdi:bell"
+
+    @property
+    def native_value(self):
+        return len([n for n in self._m.notifications if not n.get("read")])
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "notifications": [dict(n) for n in self._m.notifications],
+            "unread": len([n for n in self._m.notifications if not n.get("read")]),
+            "total": len(self._m.notifications),
         }

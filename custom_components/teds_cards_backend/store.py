@@ -14,7 +14,9 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     EVENT_ALARM_RINGING,
+    EVENT_NOTIFICATION,
     EVENT_TIMER_FINISHED,
+    NOTIFICATIONS_MAX,
     RECENT_TIMERS_MAX,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -30,6 +32,7 @@ class TedsManager:
         self.alarms: list[dict] = []
         self.recent: list[dict] = []  # last N timer presets (h/m/s + name)
         self.active: dict[str, dict] = {}  # id -> {name, ends, cancel}
+        self.notifications: list[dict] = []  # newest-first notification list
         self._listeners: list = []
         self._update_cbs: set = set()
 
@@ -37,11 +40,16 @@ class TedsManager:
         data = await self._store.async_load() or {}
         self.alarms = data.get("alarms", [])
         self.recent = data.get("recent", [])
+        self.notifications = data.get("notifications", [])
         # Per-minute alarm check.
         self._listeners.append(async_track_time_change(self.hass, self._tick, second=0))
 
     async def _save(self) -> None:
-        await self._store.async_save({"alarms": self.alarms, "recent": self.recent})
+        await self._store.async_save({
+            "alarms": self.alarms,
+            "recent": self.recent,
+            "notifications": self.notifications,
+        })
 
     def shutdown(self) -> None:
         for unsub in self._listeners:
@@ -81,6 +89,7 @@ class TedsManager:
     def _tick(self, now: datetime) -> None:
         local = dt_util.as_local(now)
         hhmm = local.strftime("%H:%M")
+        rang = False
         for a in self.alarms:
             if a.get("enabled") and local.weekday() in a.get("days", []) and a.get("time") == hhmm:
                 loc = a.get("location")
@@ -90,6 +99,19 @@ class TedsManager:
                     "location": loc,
                     "area_name": self._area_name(loc),
                 })
+                self._add_notification(
+                    title="Alarm",
+                    message=a["label"],
+                    severity="warning",
+                    icon="mdi:alarm",
+                    area=loc,
+                    timeout=120,
+                    source="alarm",
+                )
+                rang = True
+        if rang:
+            self.hass.async_create_task(self._save())
+            self._notify()
 
     def _area_name(self, location):
         """Resolve an area_id to its friendly name (None when unknown/unset)."""
@@ -191,6 +213,90 @@ class TedsManager:
                 "location": loc,
                 "area_name": self._area_name(loc),
             })
+            self._add_notification(
+                title="Timer complete",
+                message=f"{t['name']} ({self._fmt_duration(t.get('duration', 0))} timer)",
+                severity="info",
+                icon="mdi:timer-check-outline",
+                area=loc,
+                timeout=60,
+                source="timer",
+            )
+            self.hass.async_create_task(self._save())
+        self._notify()
+
+    @staticmethod
+    def _fmt_duration(sec) -> str:
+        """Seconds → "1 hr, 30 min" using only the relevant parts."""
+        sec = int(sec or 0)
+        h, m, s = sec // 3600, (sec % 3600) // 60, sec % 60
+        parts = []
+        if h:
+            parts.append(f"{h} hr")
+        if m:
+            parts.append(f"{m} min")
+        if s:
+            parts.append(f"{s} sec")
+        return ", ".join(parts) or "0 sec"
+
+    # ── notifications ───────────────────────────────────────
+    def _add_notification(self, *, title, message, severity="info", icon=None,
+                          area=None, actions=None, notif_id=None, timeout=None,
+                          sticky=False, source="service"):
+        """Create/replace a notification, persist, fire the event, and refresh sensors."""
+        nid = notif_id or uuid.uuid4().hex
+        item = {
+            "id": nid,
+            "title": title,
+            "message": message,
+            "severity": severity,
+            "icon": icon,
+            "area": area,
+            "area_name": self._area_name(area),
+            "created": dt_util.utcnow().isoformat(),
+            "read": False,
+            "sticky": bool(sticky),
+            "timeout": timeout,
+            "actions": actions or [],
+            "source": source,
+        }
+        # Upsert by id (newest first), then cap.
+        self.notifications = [n for n in self.notifications if n["id"] != nid]
+        self.notifications.insert(0, item)
+        del self.notifications[NOTIFICATIONS_MAX:]
+        self.hass.bus.async_fire(EVENT_NOTIFICATION, item)
+        return item
+
+    async def notify(self, title, message, severity="info", icon=None, area=None,
+                     actions=None, notif_id=None, timeout=None, sticky=False, source="service"):
+        self._add_notification(
+            title=title, message=message, severity=severity, icon=icon, area=area,
+            actions=actions, notif_id=notif_id, timeout=timeout, sticky=sticky, source=source,
+        )
+        await self._save()
+        self._notify()
+
+    async def dismiss_notification(self, notif_id):
+        self.notifications = [n for n in self.notifications if n["id"] != notif_id]
+        await self._save()
+        self._notify()
+
+    async def mark_read(self, notif_id=None, area=None):
+        for n in self.notifications:
+            if notif_id is not None and n["id"] != notif_id:
+                continue
+            if area is not None and n.get("area") != area:
+                continue
+            n["read"] = True
+        await self._save()
+        self._notify()
+
+    async def clear_notifications(self, area=None):
+        if area is None:
+            self.notifications = []
+        else:
+            self.notifications = [n for n in self.notifications if n.get("area") != area]
+        await self._save()
         self._notify()
 
     # ── notify sensors ──────────────────────────────────────

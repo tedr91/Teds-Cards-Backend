@@ -45,6 +45,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data.get("seconds", 0), call.data.get("location"),
         )
 
+    async def notify(call: ServiceCall):
+        await manager.notify(
+            call.data["title"], call.data["message"],
+            severity=call.data.get("severity", "info"), icon=call.data.get("icon"),
+            area=call.data.get("area"), actions=call.data.get("actions"),
+            notif_id=call.data.get("id"), timeout=call.data.get("timeout"),
+            sticky=call.data.get("sticky", False),
+        )
+
+    async def dismiss_notification(call: ServiceCall):
+        await manager.dismiss_notification(call.data["id"])
+
+    async def mark_read(call: ServiceCall):
+        await manager.mark_read(call.data.get("id"), call.data.get("area"))
+
+    async def clear_notifications(call: ServiceCall):
+        await manager.clear_notifications(call.data.get("area"))
+
     async def pause_timer(call: ServiceCall):
         manager.pause_timer(call.data["id"])
 
@@ -75,6 +93,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "update_timer", update_timer, schema=vol.Schema({
         vol.Required("id"): cv.string, vol.Optional("name"): cv.string,
         vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int}))
+    hass.services.async_register(DOMAIN, "notify", notify, schema=vol.Schema({
+        vol.Required("title"): cv.string, vol.Required("message"): cv.string,
+        vol.Optional("severity"): cv.string, vol.Optional("icon"): cv.string,
+        vol.Optional("area"): vol.Any(None, cv.string), vol.Optional("actions"): list,
+        vol.Optional("id"): cv.string, vol.Optional("timeout"): vol.Any(None, int),
+        vol.Optional("sticky"): cv.boolean}))
+    hass.services.async_register(DOMAIN, "dismiss_notification", dismiss_notification, schema=vol.Schema({vol.Required("id"): cv.string}))
+    hass.services.async_register(DOMAIN, "mark_read", mark_read, schema=vol.Schema({
+        vol.Optional("id"): cv.string, vol.Optional("area"): vol.Any(None, cv.string)}))
+    hass.services.async_register(DOMAIN, "clear_notifications", clear_notifications, schema=vol.Schema({
+        vol.Optional("area"): vol.Any(None, cv.string)}))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

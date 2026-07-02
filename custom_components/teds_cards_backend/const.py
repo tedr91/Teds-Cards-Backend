@@ -8,5 +8,9 @@ STORAGE_KEY = DOMAIN
 # How many most-recent timers to remember for quick re-start.
 RECENT_TIMERS_MAX = 5
 
+# How many notifications to keep in the store (FIFO, newest kept).
+NOTIFICATIONS_MAX = 50
+
 EVENT_ALARM_RINGING = f"{DOMAIN}_alarm_ringing"
 EVENT_TIMER_FINISHED = f"{DOMAIN}_timer_finished"
+EVENT_NOTIFICATION = f"{DOMAIN}_notification"

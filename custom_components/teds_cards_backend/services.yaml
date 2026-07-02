@@ -51,3 +51,27 @@ update_timer:
     hours: { selector: { number: { min: 0, max: 23 } } }
     minutes: { selector: { number: { min: 0, max: 59 } } }
     seconds: { selector: { number: { min: 0, max: 59 } } }
+notify:
+  name: Show notification
+  fields:
+    title: { required: true, selector: { text: {} } }
+    message: { required: true, selector: { text: {} } }
+    severity: { selector: { select: { options: ["info", "success", "warning", "danger", "tip"] } } }
+    icon: { selector: { icon: {} } }
+    area: { selector: { area: {} } }
+    timeout: { selector: { number: { min: 0, max: 600, unit_of_measurement: "s" } } }
+    sticky: { selector: { boolean: {} } }
+    id: { selector: { text: {} } }
+dismiss_notification:
+  name: Dismiss notification
+  fields:
+    id: { required: true, selector: { text: {} } }
+mark_read:
+  name: Mark notification(s) read
+  fields:
+    id: { selector: { text: {} } }
+    area: { selector: { area: {} } }
+clear_notifications:
+  name: Clear notifications
+  fields:
+    area: { selector: { area: {} } }
