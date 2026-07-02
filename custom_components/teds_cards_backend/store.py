@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import uuid
 from datetime import datetime, timedelta
 
@@ -102,7 +103,7 @@ class TedsManager:
         secs = hours * 3600 + minutes * 60 + seconds
         tid = uuid.uuid4().hex
         ends = dt_util.utcnow() + timedelta(seconds=secs)
-        cancel = async_call_later(self.hass, secs, lambda *_: self._finish(tid))
+        cancel = async_call_later(self.hass, secs, functools.partial(self._on_elapsed, tid))
         self.active[tid] = {
             "id": tid, "name": name, "ends": ends.isoformat(),
             "duration": secs, "remaining": secs, "paused": False, "cancel": cancel,
@@ -136,7 +137,7 @@ class TedsManager:
         secs = max(0, int(t.get("remaining", 0)))
         t["ends"] = (dt_util.utcnow() + timedelta(seconds=secs)).isoformat()
         t["paused"] = False
-        t["cancel"] = async_call_later(self.hass, secs, lambda *_: self._finish(tid))
+        t["cancel"] = async_call_later(self.hass, secs, functools.partial(self._on_elapsed, tid))
         self._notify()
 
     def update_timer(self, tid, name=None, hours=None, minutes=None, seconds=None):
@@ -154,7 +155,7 @@ class TedsManager:
                 t["cancel"] = None
             t["ends"] = (dt_util.utcnow() + timedelta(seconds=secs)).isoformat()
             if not t.get("paused"):
-                t["cancel"] = async_call_later(self.hass, secs, lambda *_: self._finish(tid))
+                t["cancel"] = async_call_later(self.hass, secs, functools.partial(self._on_elapsed, tid))
         self._notify()
 
     def cancel_timer(self, tid):
@@ -163,6 +164,12 @@ class TedsManager:
             t["cancel"]()
         self._notify()
 
+    @callback
+    def _on_elapsed(self, tid, _now=None):
+        """Timer duration elapsed — runs in the event loop (via HassJob callback)."""
+        self._finish(tid)
+
+    @callback
     def _finish(self, tid):
         t = self.active.pop(tid, None)
         if t:
@@ -170,6 +177,7 @@ class TedsManager:
             self.hass.bus.async_fire(EVENT_TIMER_FINISHED, {
                 "id": tid,
                 "name": t["name"],
+                "duration": t.get("duration", 0),
                 "location": loc,
                 "area_name": self._area_name(loc),
             })
