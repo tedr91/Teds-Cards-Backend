@@ -164,6 +164,16 @@ class TedsManager:
             t["cancel"]()
         self._notify()
 
+    async def remove_recent(self, name, hours=0, minutes=0, seconds=0, location=None):
+        """Drop a preset from the Recent timers list."""
+        self.recent = [
+            r for r in self.recent
+            if not (r["name"] == name and r["h"] == hours and r["m"] == minutes
+                    and r["s"] == seconds and r.get("location") == location)
+        ]
+        await self._save()
+        self._notify()
+
     @callback
     def _on_elapsed(self, tid, _now=None):
         """Timer duration elapsed — runs in the event loop (via HassJob callback)."""
