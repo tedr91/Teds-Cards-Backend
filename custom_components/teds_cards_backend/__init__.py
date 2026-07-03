@@ -11,6 +11,7 @@ import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN
 from .store import TedsManager
+from .websocket import async_register as async_register_ws
 
 PLATFORMS = [Platform.SENSOR]
 
@@ -19,6 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     manager = TedsManager(hass)
     await manager.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = manager
+    async_register_ws(hass)
 
     async def add_alarm(call: ServiceCall):
         await manager.add_alarm(
