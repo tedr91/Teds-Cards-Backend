@@ -111,6 +111,7 @@ class TedsManager:
                     area=loc,
                     timeout=120,
                     source="alarm",
+                    actions=self._completion_actions(a["label"], 9, loc),
                 )
                 rang = True
         if rang:
@@ -123,6 +124,23 @@ class TedsManager:
             return None
         area = ar.async_get(self.hass).async_get_area(location)
         return area.name if area else None
+
+    @staticmethod
+    def _completion_actions(name, minutes, loc):
+        """Snooze (starts a timer for `minutes`, keeping the room) + Dismiss buttons."""
+        data = {"name": name, "minutes": minutes}
+        if loc:
+            data["location"] = loc
+        return [
+            {
+                "label": f"Snooze ({minutes}min)",
+                "action": "call-service",
+                "service": "teds_cards_backend.start_timer",
+                "service_data": data,
+                "variant": "primary",
+            },
+            {"label": "Dismiss", "action": "dismiss"},
+        ]
 
     # ── timers ──────────────────────────────────────────────
     async def start_timer(self, name, hours=0, minutes=0, seconds=0, location=None):
@@ -227,6 +245,7 @@ class TedsManager:
                 area=loc,
                 timeout=60,
                 source="timer",
+                actions=self._completion_actions(t["name"], 1, loc),
             )
             self.hass.async_create_task(self._save())
         self._notify()

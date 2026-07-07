@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.10
+
+- **Snooze / Dismiss buttons on completion notifications** — finished-timer and ringing-alarm notifications now include action buttons: **Snooze (1min)** / **Dismiss** for timers and **Snooze (9min)** / **Dismiss** for alarms. Snooze starts a new timer for the snooze duration, keeping the original name and room (so alarm snoozes stay area-scoped). Pairs with Ted's Cards v1.0.34+.
+
 ### v1.0.9
 
 - **Dismissals sync across devices** — `mark_read`, `dismiss_notification`, and `clear_notifications` now broadcast a dismissal signal (a `teds_cards_backend_notification` event with `dismissed: true`) for each affected notification, so a toast dismissed on one device closes on every device showing it (e.g. a house-wide alarm cleared everywhere at once). Pairs with Ted's Cards v1.0.65+.
