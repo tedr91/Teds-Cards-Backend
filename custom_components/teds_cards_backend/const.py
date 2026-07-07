@@ -32,17 +32,21 @@ SETTINGS_DEFAULTS = {
     "timer_alert_sound": DEFAULT_SOUND,
     "timer_alert_volume": 60,
     "timer_alert_repeat": True,
-    "timer_alert_max_repeats": 10,
     # Alarms
     "alarm_snooze_enabled": True,
     "alarm_snooze_minutes": 9,
     "alarm_alert_sound": DEFAULT_SOUND,
     "alarm_alert_volume": 70,
     "alarm_alert_repeat": True,
-    "alarm_alert_max_repeats": 10,
     # Notifications
     "notification_sound": DEFAULT_SOUND,
     "notification_volume": 50,
+    # Per-severity notification sounds ("default" → use notification_sound).
+    "notification_sound_info": DEFAULT_SOUND,
+    "notification_sound_success": DEFAULT_SOUND,
+    "notification_sound_warning": DEFAULT_SOUND,
+    "notification_sound_danger": DEFAULT_SOUND,
+    "notification_sound_tip": DEFAULT_SOUND,
     # Media
     "media_player": None,
     "media_player_volume": 50,

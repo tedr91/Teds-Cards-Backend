@@ -123,7 +123,7 @@ class TedsManager:
                     "location": loc,
                     "area_name": self._area_name(loc),
                 })
-                item = self._add_notification(
+                self._add_notification(
                     title="Alarm",
                     message=a["label"],
                     severity="warning",
@@ -133,7 +133,6 @@ class TedsManager:
                     source="alarm",
                     snooze={"kind": "alarm", "name": a["label"], "area": loc},
                 )
-                self.playback.play("alarm", loc, item["id"])
                 rang = True
         if rang:
             self.hass.async_create_task(self._save())
@@ -242,7 +241,7 @@ class TedsManager:
                 "location": loc,
                 "area_name": self._area_name(loc),
             })
-            item = self._add_notification(
+            self._add_notification(
                 title="Timer complete",
                 message=f"{t['name']} ({self._fmt_duration(t.get('duration', 0))} timer)",
                 severity="info",
@@ -252,7 +251,6 @@ class TedsManager:
                 source="timer",
                 snooze={"kind": "timer", "name": t["name"], "area": loc},
             )
-            self.playback.play("timer", loc, item["id"])
             self.hass.async_create_task(self._save())
         self._notify()
 
@@ -273,8 +271,14 @@ class TedsManager:
     # ── notifications ───────────────────────────────────────
     def _add_notification(self, *, title, message, severity="info", icon=None,
                           area=None, actions=None, notif_id=None, timeout=None,
-                          sticky=False, source="service", snooze=None):
-        """Create/replace a notification, persist, fire the event, and refresh sensors."""
+                          persistence="normal", source="service", snooze=None):
+        """Create a notification, fire the event, play sound, and refresh sensors.
+
+        `persistence` controls its lifetime:
+          - "transient": shown as a toast (+ sound) but never stored in the list.
+          - "normal":    stored; auto-removed when the user reads/dismisses it.
+          - "sticky":    stored; marked read on interaction, kept until cleared.
+        """
         nid = notif_id or uuid.uuid4().hex
         item = {
             "id": nid,
@@ -286,7 +290,7 @@ class TedsManager:
             "area_name": self._area_name(area),
             "created": dt_util.utcnow().isoformat(),
             "read": False,
-            "sticky": bool(sticky),
+            "persistence": persistence,
             "timeout": timeout,
             # Client-resolved snooze: the device renders/acts using its own effective
             # settings (enable + minutes) — {"kind": "timer"|"alarm", "name", "area"}.
@@ -294,20 +298,27 @@ class TedsManager:
             "actions": actions or [],
             "source": source,
         }
-        # Upsert by id (newest first), then cap.
-        self.notifications = [n for n in self.notifications if n["id"] != nid]
-        self.notifications.insert(0, item)
-        del self.notifications[NOTIFICATIONS_MAX:]
+        # Transient notifications are never persisted: just deliver the toast + sound.
+        if persistence != "transient":
+            # Upsert by id (newest first), then cap.
+            self.notifications = [n for n in self.notifications if n["id"] != nid]
+            self.notifications.insert(0, item)
+            del self.notifications[NOTIFICATIONS_MAX:]
         self.hass.bus.async_fire(EVENT_NOTIFICATION, item)
+        # Single spot that drives sound for every notification (mapped by source +
+        # severity). Alarm/timer alerts use their own sounds; others use the
+        # per-severity notification sound.
+        self.playback.on_notification(item)
         return item
 
     async def notify(self, title, message, severity="info", icon=None, area=None,
-                     actions=None, notif_id=None, timeout=None, sticky=False, source="service"):
-        item = self._add_notification(
+                     actions=None, notif_id=None, timeout=None, persistence="normal",
+                     source="service"):
+        self._add_notification(
             title=title, message=message, severity=severity, icon=icon, area=area,
-            actions=actions, notif_id=notif_id, timeout=timeout, sticky=sticky, source=source,
+            actions=actions, notif_id=notif_id, timeout=timeout, persistence=persistence,
+            source=source,
         )
-        self.playback.play("notification", area, item["id"])
         await self._save()
         self._notify()
 
@@ -318,16 +329,27 @@ class TedsManager:
         self._notify()
 
     async def mark_read(self, notif_id=None, area=None):
+        """Handle a read/dismiss interaction.
+
+        Sticky notifications are flagged read and kept; normal ones auto-clear
+        (removed) on interaction. In both cases subscribers are told to close the
+        matching toast, so acting on one device clears it everywhere.
+        """
         affected = []
+        remaining = []
         for n in self.notifications:
-            if notif_id is not None and n["id"] != notif_id:
+            match = (notif_id is None or n["id"] == notif_id) and (
+                area is None or n.get("area") == area
+            )
+            if not match:
+                remaining.append(n)
                 continue
-            if area is not None and n.get("area") != area:
-                continue
-            n["read"] = True
             affected.append(n["id"])
-        # Tell every subscribing device to close the matching toast(s), so a
-        # notification dismissed on one device clears everywhere at once.
+            if n.get("persistence") == "sticky":
+                n["read"] = True
+                remaining.append(n)
+            # normal → dropped (auto-clear on interaction)
+        self.notifications = remaining
         for nid in affected:
             self._fire_dismissed(nid)
         await self._save()

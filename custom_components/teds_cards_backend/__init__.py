@@ -56,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             severity=call.data.get("severity", "info"), icon=call.data.get("icon"),
             area=call.data.get("area"), actions=call.data.get("actions"),
             notif_id=call.data.get("id"), timeout=call.data.get("timeout"),
-            sticky=call.data.get("sticky", False),
+            persistence=call.data.get("persistence", "normal"),
         )
 
     async def dismiss_notification(call: ServiceCall):
@@ -126,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         vol.Optional("severity"): cv.string, vol.Optional("icon"): cv.string,
         vol.Optional("area"): vol.Any(None, cv.string), vol.Optional("actions"): list,
         vol.Optional("id"): cv.string, vol.Optional("timeout"): vol.Any(None, int),
-        vol.Optional("sticky"): cv.boolean}))
+        vol.Optional("persistence"): vol.In(("transient", "normal", "sticky"))}))
     hass.services.async_register(DOMAIN, "dismiss_notification", dismiss_notification, schema=vol.Schema({vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "mark_read", mark_read, schema=vol.Schema({
         vol.Optional("id"): cv.string, vol.Optional("area"): vol.Any(None, cv.string)}))

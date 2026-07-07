@@ -61,7 +61,7 @@ notify:
     icon: { selector: { icon: {} } }
     area: { selector: { area: {} } }
     timeout: { selector: { number: { min: 0, max: 600, unit_of_measurement: "s" } } }
-    sticky: { selector: { boolean: {} } }
+    persistence: { selector: { select: { options: ["transient", "normal", "sticky"] } } }
     id: { selector: { text: {} } }
 dismiss_notification:
   name: Dismiss notification
