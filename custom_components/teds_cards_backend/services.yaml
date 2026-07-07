@@ -95,3 +95,4 @@ register_device:
     device_id: { required: true, selector: { text: {} } }
     area: { selector: { area: {} } }
     name: { selector: { text: {} } }
+    media_player: { selector: { entity: { domain: media_player } } }

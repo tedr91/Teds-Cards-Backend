@@ -81,6 +81,7 @@ def handle_subscribe_settings(
         vol.Required("device_id"): str,
         vol.Optional("area"): vol.Any(None, str),
         vol.Optional("name"): vol.Any(None, str),
+        vol.Optional("media_player"): vol.Any(None, str),
     }
 )
 @websocket_api.async_response
@@ -90,6 +91,8 @@ async def handle_register_device(
     """Let a (non-admin) device register its id + area for settings targeting."""
     mgr = _manager(hass)
     if mgr:
-        await mgr.register_device(msg["device_id"], msg.get("area"), msg.get("name"))
+        await mgr.register_device(
+            msg["device_id"], msg.get("area"), msg.get("name"), msg.get("media_player")
+        )
     connection.send_result(msg["id"])
 

@@ -48,7 +48,8 @@ class PlaybackEngine:
             eff = m.effective_settings(did)
             if eff.get("do_not_disturb"):
                 continue
-            mp = eff.get("media_player")
+            # Per-device / global media player, else the device's own client player.
+            mp = eff.get("media_player") or entry.get("media_player")
             if not mp or mp in seen:
                 continue
             seen.add(mp)
