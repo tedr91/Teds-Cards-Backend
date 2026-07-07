@@ -12,12 +12,18 @@ from homeassistant.helpers.event import async_call_later, async_track_time_chang
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .playback import PlaybackEngine
+
 from .const import (
+    DEVICE_PRESENCE_TTL,
     EVENT_ALARM_RINGING,
     EVENT_NOTIFICATION,
+    EVENT_SETTINGS,
     EVENT_TIMER_FINISHED,
     NOTIFICATIONS_MAX,
     RECENT_TIMERS_MAX,
+    SETTINGS_DEFAULTS,
+    SETTINGS_KEYS,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -33,6 +39,11 @@ class TedsManager:
         self.recent: list[dict] = []  # last N timer presets (h/m/s + name)
         self.active: dict[str, dict] = {}  # id -> {name, ends, cancel}
         self.notifications: list[dict] = []  # newest-first notification list
+        # Settings: global baseline + per-device overrides (only overridden keys stored).
+        self.settings: dict = {"global": {}, "devices": {}}
+        # Devices that have registered themselves (device_id -> {area, name, last_seen}).
+        self.device_registry: dict[str, dict] = {}
+        self.playback = PlaybackEngine(self)
         self._listeners: list = []
         self._update_cbs: set = set()
 
@@ -41,6 +52,12 @@ class TedsManager:
         self.alarms = data.get("alarms", [])
         self.recent = data.get("recent", [])
         self.notifications = data.get("notifications", [])
+        stored_settings = data.get("settings") or {}
+        self.settings = {
+            "global": dict(stored_settings.get("global") or {}),
+            "devices": {k: dict(v) for k, v in (stored_settings.get("devices") or {}).items()},
+        }
+        self.device_registry = {k: dict(v) for k, v in (data.get("devices") or {}).items()}
         # Per-minute alarm check.
         self._listeners.append(async_track_time_change(self.hass, self._tick, second=0))
 
@@ -49,6 +66,8 @@ class TedsManager:
             "alarms": self.alarms,
             "recent": self.recent,
             "notifications": self.notifications,
+            "settings": self.settings,
+            "devices": self.device_registry,
         })
 
     def shutdown(self) -> None:
@@ -57,6 +76,7 @@ class TedsManager:
         for t in self.active.values():
             if t.get("cancel"):
                 t["cancel"]()
+        self.playback.shutdown()
 
     # ── alarms ──────────────────────────────────────────────
     async def add_alarm(self, label, time, days, description="", enabled=True, location=None):
@@ -103,7 +123,7 @@ class TedsManager:
                     "location": loc,
                     "area_name": self._area_name(loc),
                 })
-                self._add_notification(
+                item = self._add_notification(
                     title="Alarm",
                     message=a["label"],
                     severity="warning",
@@ -111,8 +131,9 @@ class TedsManager:
                     area=loc,
                     timeout=120,
                     source="alarm",
-                    actions=self._completion_actions(a["label"], 9, loc),
+                    snooze={"kind": "alarm", "name": a["label"], "area": loc},
                 )
+                self.playback.play("alarm", loc, item["id"])
                 rang = True
         if rang:
             self.hass.async_create_task(self._save())
@@ -125,22 +146,6 @@ class TedsManager:
         area = ar.async_get(self.hass).async_get_area(location)
         return area.name if area else None
 
-    @staticmethod
-    def _completion_actions(name, minutes, loc):
-        """Snooze (starts a timer for `minutes`, keeping the room) + Dismiss buttons."""
-        data = {"name": name, "minutes": minutes}
-        if loc:
-            data["location"] = loc
-        return [
-            {
-                "label": f"Snooze ({minutes}min)",
-                "action": "call-service",
-                "service": "teds_cards_backend.start_timer",
-                "service_data": data,
-                "variant": "primary",
-            },
-            {"label": "Dismiss", "action": "dismiss"},
-        ]
 
     # ── timers ──────────────────────────────────────────────
     async def start_timer(self, name, hours=0, minutes=0, seconds=0, location=None):
@@ -237,7 +242,7 @@ class TedsManager:
                 "location": loc,
                 "area_name": self._area_name(loc),
             })
-            self._add_notification(
+            item = self._add_notification(
                 title="Timer complete",
                 message=f"{t['name']} ({self._fmt_duration(t.get('duration', 0))} timer)",
                 severity="info",
@@ -245,8 +250,9 @@ class TedsManager:
                 area=loc,
                 timeout=60,
                 source="timer",
-                actions=self._completion_actions(t["name"], 1, loc),
+                snooze={"kind": "timer", "name": t["name"], "area": loc},
             )
+            self.playback.play("timer", loc, item["id"])
             self.hass.async_create_task(self._save())
         self._notify()
 
@@ -267,7 +273,7 @@ class TedsManager:
     # ── notifications ───────────────────────────────────────
     def _add_notification(self, *, title, message, severity="info", icon=None,
                           area=None, actions=None, notif_id=None, timeout=None,
-                          sticky=False, source="service"):
+                          sticky=False, source="service", snooze=None):
         """Create/replace a notification, persist, fire the event, and refresh sensors."""
         nid = notif_id or uuid.uuid4().hex
         item = {
@@ -282,6 +288,9 @@ class TedsManager:
             "read": False,
             "sticky": bool(sticky),
             "timeout": timeout,
+            # Client-resolved snooze: the device renders/acts using its own effective
+            # settings (enable + minutes) — {"kind": "timer"|"alarm", "name", "area"}.
+            "snooze": snooze,
             "actions": actions or [],
             "source": source,
         }
@@ -294,10 +303,11 @@ class TedsManager:
 
     async def notify(self, title, message, severity="info", icon=None, area=None,
                      actions=None, notif_id=None, timeout=None, sticky=False, source="service"):
-        self._add_notification(
+        item = self._add_notification(
             title=title, message=message, severity=severity, icon=icon, area=area,
             actions=actions, notif_id=notif_id, timeout=timeout, sticky=sticky, source=source,
         )
+        self.playback.play("notification", area, item["id"])
         await self._save()
         self._notify()
 
@@ -338,7 +348,95 @@ class TedsManager:
     def _fire_dismissed(self, notif_id):
         """Signal subscribers that a notification was dismissed/read, so their
         toasts close on every device (not just the one that acted)."""
+        self.playback.stop(notif_id)
         self.hass.bus.async_fire(EVENT_NOTIFICATION, {"id": notif_id, "dismissed": True})
+
+    # ── settings ────────────────────────────────────────────
+    def effective_settings(self, device_id=None) -> dict:
+        """Merge defaults ⊕ global ⊕ this device's overrides."""
+        merged = dict(SETTINGS_DEFAULTS)
+        merged.update(self.settings.get("global") or {})
+        if device_id:
+            merged.update(self.settings.get("devices", {}).get(device_id) or {})
+        return merged
+
+    def settings_payload(self) -> dict:
+        """The full settings snapshot pushed to subscribers / exposed on the sensor."""
+        return {
+            "defaults": dict(SETTINGS_DEFAULTS),
+            "global": dict(self.settings.get("global") or {}),
+            "devices": {k: dict(v) for k, v in (self.settings.get("devices") or {}).items()},
+            "registry": {k: dict(v) for k, v in self.device_registry.items()},
+        }
+
+    def _fire_settings(self) -> None:
+        self.hass.bus.async_fire(EVENT_SETTINGS, self.settings_payload())
+
+    async def set_settings(self, values: dict, scope="global", device_id=None) -> None:
+        """Set one or more setting keys at the given scope. `None` value clears a key."""
+        clean = {k: v for k, v in (values or {}).items() if k in SETTINGS_KEYS}
+        if scope == "device":
+            if not device_id:
+                return
+            target = self.settings["devices"].setdefault(device_id, {})
+        else:
+            target = self.settings["global"]
+        for key, value in clean.items():
+            if value is None:
+                target.pop(key, None)
+            else:
+                target[key] = value
+        # Drop an emptied per-device override bucket so it fully inherits again.
+        if scope == "device" and not self.settings["devices"].get(device_id):
+            self.settings["devices"].pop(device_id, None)
+        await self._save()
+        self._fire_settings()
+        self._notify()
+
+    async def clear_settings(self, keys=None, scope="global", device_id=None) -> None:
+        """Clear specific keys (or all) at a scope so they inherit again."""
+        if scope == "device":
+            bucket = self.settings["devices"].get(device_id)
+            if not bucket:
+                return
+            if keys is None:
+                self.settings["devices"].pop(device_id, None)
+            else:
+                for key in keys:
+                    bucket.pop(key, None)
+                if not bucket:
+                    self.settings["devices"].pop(device_id, None)
+        else:
+            if keys is None:
+                self.settings["global"] = {}
+            else:
+                for key in keys:
+                    self.settings["global"].pop(key, None)
+        await self._save()
+        self._fire_settings()
+        self._notify()
+
+    async def register_device(self, device_id, area=None, name=None) -> None:
+        """Record/refresh a device so server-side playback can target its area."""
+        if not device_id:
+            return
+        entry = self.device_registry.setdefault(device_id, {})
+        if area is not None:
+            entry["area"] = area
+        if name is not None:
+            entry["name"] = name
+        entry["last_seen"] = dt_util.utcnow().isoformat()
+        await self._save()
+        self._fire_settings()
+        self._notify()
+
+    def _present_devices(self):
+        """Registered devices seen within the presence TTL (device_id, entry)."""
+        now = dt_util.utcnow()
+        for did, entry in self.device_registry.items():
+            seen = dt_util.parse_datetime(entry.get("last_seen") or "")
+            if seen and (now - seen).total_seconds() <= DEVICE_PRESENCE_TTL:
+                yield did, entry
 
     # ── notify sensors ──────────────────────────────────────
     def register(self, cb):

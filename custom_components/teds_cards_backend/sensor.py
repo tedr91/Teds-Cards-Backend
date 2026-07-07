@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEntitiesCallback) -> None:
     manager = hass.data[DOMAIN][entry.entry_id]
-    add([TedsAlarmsSensor(manager), TedsTimersSensor(manager), TedsNotificationsSensor(manager)])
+    add([TedsAlarmsSensor(manager), TedsTimersSensor(manager), TedsNotificationsSensor(manager), TedsSettingsSensor(manager)])
 
 
 class _Base(SensorEntity):
@@ -83,3 +83,18 @@ class TedsNotificationsSensor(_Base):
             "unread": len([n for n in self._m.notifications if not n.get("read")]),
             "total": len(self._m.notifications),
         }
+
+
+class TedsSettingsSensor(_Base):
+    _attr_name = "Teds Settings"
+    _attr_unique_id = "teds_settings"
+    _attr_icon = "mdi:cog"
+
+    @property
+    def native_value(self):
+        # Number of per-device override buckets (a stable, cheap summary value).
+        return len(self._m.settings.get("devices", {}))
+
+    @property
+    def extra_state_attributes(self):
+        return self._m.settings_payload()

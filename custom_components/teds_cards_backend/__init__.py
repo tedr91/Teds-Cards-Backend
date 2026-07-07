@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -21,6 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await manager.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = manager
     async_register_ws(hass)
+    await _register_sound_path(hass)
 
     async def add_alarm(call: ServiceCall):
         await manager.add_alarm(
@@ -65,6 +68,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def clear_notifications(call: ServiceCall):
         await manager.clear_notifications(call.data.get("area"))
 
+    async def set_setting(call: ServiceCall):
+        await manager.set_settings(
+            {call.data["key"]: call.data.get("value")},
+            scope=call.data.get("scope", "global"),
+            device_id=call.data.get("device_id"),
+        )
+
+    async def clear_setting(call: ServiceCall):
+        key = call.data.get("key")
+        await manager.clear_settings(
+            keys=[key] if key else None,
+            scope=call.data.get("scope", "global"),
+            device_id=call.data.get("device_id"),
+        )
+
+    async def register_device(call: ServiceCall):
+        await manager.register_device(
+            call.data["device_id"], call.data.get("area"), call.data.get("name")
+        )
+
     async def pause_timer(call: ServiceCall):
         manager.pause_timer(call.data["id"])
 
@@ -108,9 +131,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         vol.Optional("id"): cv.string, vol.Optional("area"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "clear_notifications", clear_notifications, schema=vol.Schema({
         vol.Optional("area"): vol.Any(None, cv.string)}))
+    hass.services.async_register(DOMAIN, "set_setting", set_setting, schema=vol.Schema({
+        vol.Required("key"): cv.string, vol.Optional("value"): vol.Any(None, bool, int, float, cv.string),
+        vol.Optional("scope"): vol.In(["global", "device"]), vol.Optional("device_id"): cv.string}))
+    hass.services.async_register(DOMAIN, "clear_setting", clear_setting, schema=vol.Schema({
+        vol.Optional("key"): cv.string, vol.Optional("scope"): vol.In(["global", "device"]),
+        vol.Optional("device_id"): cv.string}))
+    hass.services.async_register(DOMAIN, "register_device", register_device, schema=vol.Schema({
+        vol.Required("device_id"): cv.string, vol.Optional("area"): vol.Any(None, cv.string),
+        vol.Optional("name"): vol.Any(None, cv.string)}))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _register_sound_path(hass: HomeAssistant) -> None:
+    """Serve bundled alert sounds at /teds_cards_backend/sounds/* (once)."""
+    flag = f"{DOMAIN}_sounds_registered"
+    if hass.data.get(flag):
+        return
+    sounds_dir = os.path.join(os.path.dirname(__file__), "sounds")
+    url = "/teds_cards_backend/sounds"
+    try:
+        from homeassistant.components.http import StaticPathConfig
+
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(url, sounds_dir, False)]
+        )
+        hass.data[flag] = True
+    except Exception:  # noqa: BLE001 - fall back for older HA cores
+        try:
+            hass.http.register_static_path(url, sounds_dir, False)
+            hass.data[flag] = True
+        except Exception:  # noqa: BLE001
+            pass
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

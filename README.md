@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.11
+
+- **Settings system + sound playback** — a backend settings store (**global** baseline + **per-device** overrides) with services (`set_setting`, `clear_setting`, `register_device`), a `teds_cards_backend/subscribe_settings` WebSocket command, a device registry, and **`sensor.teds_settings`**. A server-side **playback engine** plays alert sounds for finished timers / ringing alarms / notifications on the firing area's devices' media players (deduped, DND-aware), repeating up to the configured max and cancelling on dismiss. Snooze is now a client-resolved payload on completion notifications (each device uses its own snooze settings). Bundled default sounds are served from `/teds_cards_backend/sounds/` (drop `timer.mp3` / `alarm.mp3` / `notification.mp3` in the `sounds/` folder, or set a custom URL in settings). Pairs with Ted's Cards v1.0.69+.
+
 ### v1.0.10
 
 - **Snooze / Dismiss buttons on completion notifications** — finished-timer and ringing-alarm notifications now include action buttons: **Snooze (1min)** / **Dismiss** for timers and **Snooze (9min)** / **Dismiss** for alarms. Snooze starts a new timer for the snooze duration, keeping the original name and room (so alarm snoozes stay area-scoped). Pairs with Ted's Cards v1.0.34+.

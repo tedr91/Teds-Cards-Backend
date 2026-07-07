@@ -76,3 +76,22 @@ clear_notifications:
   name: Clear notifications
   fields:
     area: { selector: { area: {} } }
+set_setting:
+  name: Set setting
+  fields:
+    key: { required: true, selector: { text: {} } }
+    value: { selector: { text: {} } }
+    scope: { selector: { select: { options: ["global", "device"] } } }
+    device_id: { selector: { text: {} } }
+clear_setting:
+  name: Clear setting
+  fields:
+    key: { selector: { text: {} } }
+    scope: { selector: { select: { options: ["global", "device"] } } }
+    device_id: { selector: { text: {} } }
+register_device:
+  name: Register device
+  fields:
+    device_id: { required: true, selector: { text: {} } }
+    area: { selector: { area: {} } }
+    name: { selector: { text: {} } }
