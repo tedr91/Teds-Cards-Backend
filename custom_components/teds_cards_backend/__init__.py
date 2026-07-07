@@ -30,7 +30,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     async def update_alarm(call: ServiceCall):
-        await manager.update_alarm(call.data["id"], **{k: call.data.get(k) for k in ("label", "time", "days", "description", "enabled", "location")})
+        await manager.update_alarm(call.data["id"], **{k: call.data[k] for k in ("label", "time", "days", "description", "enabled", "location") if k in call.data})
 
     async def remove_alarm(call: ServiceCall):
         await manager.remove_alarm(call.data["id"])
@@ -75,6 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         manager.update_timer(
             call.data["id"], name=call.data.get("name"),
             hours=call.data.get("hours"), minutes=call.data.get("minutes"), seconds=call.data.get("seconds"),
+            location=call.data.get("location"), _set_location=("location" in call.data),
         )
 
     hass.services.async_register(DOMAIN, "add_alarm", add_alarm, schema=vol.Schema({
@@ -94,7 +95,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "resume_timer", resume_timer, schema=vol.Schema({vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "update_timer", update_timer, schema=vol.Schema({
         vol.Required("id"): cv.string, vol.Optional("name"): cv.string,
-        vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int}))
+        vol.Optional("hours"): int, vol.Optional("minutes"): int, vol.Optional("seconds"): int,
+        vol.Optional("location"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "notify", notify, schema=vol.Schema({
         vol.Required("title"): cv.string, vol.Required("message"): cv.string,
         vol.Optional("severity"): cv.string, vol.Optional("icon"): cv.string,

@@ -75,7 +75,11 @@ class TedsManager:
     async def update_alarm(self, alarm_id, **changes):
         for a in self.alarms:
             if a["id"] == alarm_id:
-                a.update({k: v for k, v in changes.items() if v is not None})
+                for k, v in changes.items():
+                    # `location` may be set to None to make an alarm house-wide; other
+                    # fields are only overwritten when a value is actually provided.
+                    if k == "location" or v is not None:
+                        a[k] = v
                 break
         await self._save()
         self._notify()
@@ -162,12 +166,14 @@ class TedsManager:
         t["cancel"] = async_call_later(self.hass, secs, functools.partial(self._on_elapsed, tid))
         self._notify()
 
-    def update_timer(self, tid, name=None, hours=None, minutes=None, seconds=None):
+    def update_timer(self, tid, name=None, hours=None, minutes=None, seconds=None, location=None, _set_location=False):
         t = self.active.get(tid)
         if not t:
             return
         if name is not None:
             t["name"] = name
+        if _set_location:
+            t["location"] = location
         if hours is not None or minutes is not None or seconds is not None:
             secs = (hours or 0) * 3600 + (minutes or 0) * 60 + (seconds or 0)
             t["duration"] = secs

@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.8
+
+- **Change an alarm/timer's scope (incl. house-wide)** — `update_alarm` and `update_timer` now accept **`location`** and apply it even when set to `null`, so an existing alarm or timer can be moved to a room or made **house-wide** (cleared location). Previously `update_alarm` ignored `null`/unset fields, so a location could never be cleared, and `update_timer` didn't take a location at all. Pairs with Ted's Cards v1.0.62+ (per-item "This room / House-wide" scope).
+
 ### v1.0.7
 
 - **Notifications work for non-admin users** — added a `teds_cards_backend/subscribe_notifications` WebSocket command so kiosk/Wallpanel (non-admin) dashboards can receive notifications. Home Assistant blocks non-admin users from subscribing to custom events via `subscribe_events`, which caused repeated "Unauthorized" errors; cards now use this command instead. The `teds_cards_backend_notification` event still fires, so event-triggered automations are unaffected. Pairs with Ted's Cards v1.0.49+.
