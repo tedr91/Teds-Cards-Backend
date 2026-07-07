@@ -284,26 +284,42 @@ class TedsManager:
 
     async def dismiss_notification(self, notif_id):
         self.notifications = [n for n in self.notifications if n["id"] != notif_id]
+        self._fire_dismissed(notif_id)
         await self._save()
         self._notify()
 
     async def mark_read(self, notif_id=None, area=None):
+        affected = []
         for n in self.notifications:
             if notif_id is not None and n["id"] != notif_id:
                 continue
             if area is not None and n.get("area") != area:
                 continue
             n["read"] = True
+            affected.append(n["id"])
+        # Tell every subscribing device to close the matching toast(s), so a
+        # notification dismissed on one device clears everywhere at once.
+        for nid in affected:
+            self._fire_dismissed(nid)
         await self._save()
         self._notify()
 
     async def clear_notifications(self, area=None):
         if area is None:
+            removed = [n["id"] for n in self.notifications]
             self.notifications = []
         else:
+            removed = [n["id"] for n in self.notifications if n.get("area") == area]
             self.notifications = [n for n in self.notifications if n.get("area") != area]
+        for nid in removed:
+            self._fire_dismissed(nid)
         await self._save()
         self._notify()
+
+    def _fire_dismissed(self, notif_id):
+        """Signal subscribers that a notification was dismissed/read, so their
+        toasts close on every device (not just the one that acted)."""
+        self.hass.bus.async_fire(EVENT_NOTIFICATION, {"id": notif_id, "dismissed": True})
 
     # ── notify sensors ──────────────────────────────────────
     def register(self, cb):
