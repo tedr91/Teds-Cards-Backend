@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.16
+
+- **Repeating alarm/timer sounds actually repeat now** — the engine re-plays the sound every mp3-length (announce players re-announce; others re-play) instead of relying on `media_player.repeat_set`, which most players ignore for a one-shot media URL — so a repeating alert previously played only **once** on those players. It keeps looping until dismissed or the notification times out.
+
 ### v1.0.15
 
 - **Alarms / Timers dashboard settings** — added `alarms_dashboard` (default `[root]/alarms-timers?tab=alarms`) and `timers_dashboard` (default `[root]/alarms-timers?tab=timers`) to the settings store, so the Alarms/Timers navbar status items know where to navigate. Pairs with Ted's Cards v1.0.74+.
