@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.14
+
+- **New default navigation settings** — the **Home dashboard** now defaults to `[root]/home` (was `[root]/home-tablet`) and **Auto-return home after** defaults to `0` (never). Pairs with Ted's Cards v1.0.73+.
+
 ### v1.0.13
 
 - **Pause-and-resume playback** — alerts no longer talk over (or clobber) whatever's playing. Announce-capable media players get a native `announce` (duck/pause the current media, play the alert, auto-resume); other players (BrowserMod, Squeezelite, …) snapshot their volume + current media, play the alert, then restore and resume it. Stopping is **immediate** (`media_stop`, not at the end of the current loop), and players are always returned to their prior state. Repeating alarm/timer sounds now loop for the **actual length of the sound** — announce players re-announce each length; others loop natively via `repeat_set` — so the old fixed 6-second interval and `*_alert_max_repeats` settings are gone (repeat is now just an on/off flag, bounded by the notification's timeout). Sound length is read with `mutagen`.
