@@ -54,8 +54,8 @@ SETTINGS_DEFAULTS = {
     "do_not_disturb": False,
     # Navigation
     "dashboard_root": "ted-dashboard",
-    "home_dashboard": "[root]/home-tablet",
-    "auto_return_home_after": 30,
+    "home_dashboard": "[root]/home",
+    "auto_return_home_after": 0,
 }
 
 # Only keys present in SETTINGS_DEFAULTS may be written (guards the services/WS).
