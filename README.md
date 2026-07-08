@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.15
+
+- **Alarms / Timers dashboard settings** — added `alarms_dashboard` (default `[root]/alarms-timers?tab=alarms`) and `timers_dashboard` (default `[root]/alarms-timers?tab=timers`) to the settings store, so the Alarms/Timers navbar status items know where to navigate. Pairs with Ted's Cards v1.0.74+.
+
 ### v1.0.14
 
 - **New default navigation settings** — the **Home dashboard** now defaults to `[root]/home` (was `[root]/home-tablet`) and **Auto-return home after** defaults to `0` (never). Pairs with Ted's Cards v1.0.73+.

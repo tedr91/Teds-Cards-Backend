@@ -55,6 +55,8 @@ SETTINGS_DEFAULTS = {
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/home",
+    "alarms_dashboard": "[root]/alarms-timers?tab=alarms",
+    "timers_dashboard": "[root]/alarms-timers?tab=timers",
     "auto_return_home_after": 0,
 }
 
