@@ -7,5 +7,6 @@
   "documentation": "https://github.com/tedr91/Teds-Cards-Backend",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/tedr91/Teds-Cards-Backend/issues",
-  "version": "1.0.12"
+  "requirements": ["mutagen"],
+  "version": "1.0.13"
 }

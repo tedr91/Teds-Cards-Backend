@@ -9,6 +9,12 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.13
+
+- **Pause-and-resume playback** — alerts no longer talk over (or clobber) whatever's playing. Announce-capable media players get a native `announce` (duck/pause the current media, play the alert, auto-resume); other players (BrowserMod, Squeezelite, …) snapshot their volume + current media, play the alert, then restore and resume it. Stopping is **immediate** (`media_stop`, not at the end of the current loop), and players are always returned to their prior state. Repeating alarm/timer sounds now loop for the **actual length of the sound** — announce players re-announce each length; others loop natively via `repeat_set` — so the old fixed 6-second interval and `*_alert_max_repeats` settings are gone (repeat is now just an on/off flag, bounded by the notification's timeout). Sound length is read with `mutagen`.
+- **One place drives every sound** — sound-triggering is centralized in the notification pipeline and mapped by **source + severity**, so alarms/timers use their own alert sounds while everything else uses the per-severity notification sound. New per-severity notification sounds: `notification_sound_info` / `_success` / `_warning` / `_danger` / `_tip` (each falls back to the general `notification_sound`).
+- **Notification persistence** — the `notify` service's `sticky` boolean is replaced by a `persistence` field: **`transient`** (toast/sound only, never stored), **`normal`** (stored, auto-cleared when read/dismissed), or **`sticky`** (stored, marked read on interaction and kept until cleared). Pairs with Ted's Cards v1.0.72+.
+
 ### v1.0.12
 
 - **Playback falls back to a device's own media player** — `register_device` now accepts a `media_player`, and the playback engine uses it when no per-device or global media player is set, so a device plays alerts on its own client speaker by default. Pairs with Ted's Cards v1.0.71+.
