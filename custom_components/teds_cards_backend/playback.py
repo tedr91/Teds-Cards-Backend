@@ -11,8 +11,9 @@ Playing over existing media uses one of two strategies per player:
   finishes — no manual restore needed. Repeating alerts re-announce every sound
   length.
 - **Other players** (e.g. BrowserMod, Squeezelite) fall back to snapshotting the
-  current volume + media, playing the alert (looping natively via `repeat_set`),
-  then restoring volume and resuming the previous media on stop.
+  current volume + media, playing the alert, then restoring volume and resuming the
+  previous media on stop. Repeating alerts re-play the sound every sound length
+  (native `repeat_set` isn't honoured for a one-shot media URL on most players).
 
 Stopping is immediate (`media_stop`), and every player is returned to its prior
 state so nothing is left in a weird state.
@@ -117,8 +118,8 @@ class PlaybackEngine:
 
         Announce-capable players duck/pause and auto-resume their current media;
         other players snapshot their volume + media, play the alert, then restore.
-        Timer/alarm alerts repeat (announce every sound length, or natively via
-        `repeat_set`); ringing stops on dismiss (`stop`) or after `timeout` seconds.
+        Timer/alarm alerts repeat by re-playing the sound every sound length;
+        ringing stops on dismiss (`stop`) or after `timeout` seconds.
         """
         targets = self._targets(area)
         if not targets:
@@ -176,7 +177,7 @@ class PlaybackEngine:
             if p["announce"]:
                 await self._announce(p["mp"], p["sound"])
             else:
-                await self._play_media(p["mp"], p["sound"], p["volume"], repeat)
+                await self._play_once(p["mp"], p["sound"], p["volume"])
 
         if not notif_id:
             return
@@ -184,12 +185,13 @@ class PlaybackEngine:
         entry = {"plays": plays, "loops": [], "cancels": []}
 
         if repeat:
-            # Announce players re-announce every sound length; non-announce players
-            # loop natively via repeat_set. Auto-stop after the notification lifetime.
+            # Repeat by re-playing the sound every mp3 length (announce players
+            # re-announce; others re-play). Native `repeat_set` isn't honoured for a
+            # one-shot media URL on most players, so we drive the loop here.
+            # Auto-stop after the notification lifetime.
             for p in plays:
-                if p["announce"]:
-                    duration = await self._sound_duration(p["sound"])
-                    entry["loops"].append(self._schedule_reannounce(notif_id, p, duration))
+                duration = await self._sound_duration(p["sound"])
+                entry["loops"].append(self._schedule_reloop(notif_id, p, duration))
             if timeout:
                 entry["cancels"].append(
                     async_call_later(self.hass, float(timeout), self._auto_stop(notif_id))
@@ -215,15 +217,18 @@ class PlaybackEngine:
 
         return _cb
 
-    def _schedule_reannounce(self, notif_id, p, duration):
-        """Re-announce `p` every `duration` seconds until the alert is stopped."""
+    def _schedule_reloop(self, notif_id, p, duration):
+        """Re-play `p` every `duration` seconds until the alert is stopped."""
         loop: dict = {}
 
         @callback
         def _tick(_now=None):
             if notif_id not in self._active:
                 return
-            self.hass.async_create_task(self._announce(p["mp"], p["sound"]))
+            if p["announce"]:
+                self.hass.async_create_task(self._announce(p["mp"], p["sound"]))
+            else:
+                self.hass.async_create_task(self._replay(p["mp"], p["sound"]))
             loop["cancel"] = async_call_later(self.hass, duration, _tick)
 
         loop["cancel"] = async_call_later(self.hass, duration, _tick)
@@ -245,8 +250,8 @@ class PlaybackEngine:
         except Exception:  # noqa: BLE001 - a bad media_player must not break playback
             pass
 
-    async def _play_media(self, mp, sound, volume, repeat) -> None:
-        """Set volume + repeat and play `sound` directly (non-announce path)."""
+    async def _play_once(self, mp, sound, volume) -> None:
+        """Set volume and play `sound` directly (non-announce path)."""
         try:
             level = max(0.0, min(1.0, (float(volume or 0)) / 100.0))
             await self.hass.services.async_call(
@@ -254,9 +259,16 @@ class PlaybackEngine:
                 {"entity_id": mp, "volume_level": level}, blocking=False,
             )
             await self.hass.services.async_call(
-                "media_player", "repeat_set",
-                {"entity_id": mp, "repeat": "one" if repeat else "off"}, blocking=False,
+                "media_player", "play_media",
+                {"entity_id": mp, "media_content_id": sound, "media_content_type": "music"},
+                blocking=False,
             )
+        except Exception:  # noqa: BLE001 - a bad media_player must not break playback
+            pass
+
+    async def _replay(self, mp, sound) -> None:
+        """Re-play `sound` (a loop iteration; volume is already set)."""
+        try:
             await self.hass.services.async_call(
                 "media_player", "play_media",
                 {"entity_id": mp, "media_content_id": sound, "media_content_type": "music"},
