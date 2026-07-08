@@ -438,7 +438,11 @@ class TedsManager:
         self._fire_settings()
         self._notify()
 
-    async def register_device(self, device_id, area=None, name=None, media_player=None) -> None:
+    async def register_device(
+        self, device_id, area=None, name=None, media_player=None,
+        client_width=None, client_height=None,
+        client_orientation=None, client_form_factor=None,
+    ) -> None:
         """Record/refresh a device so server-side playback can target its area."""
         if not device_id:
             return
@@ -451,6 +455,15 @@ class TedsManager:
             # The device's own media player (browser_mod / View Assist), used as the
             # final fallback when no per-device or global media_player is set.
             entry["media_player"] = media_player or None
+        # Frontend-reported client characteristics (viewport / orientation).
+        if client_width is not None:
+            entry["client_width"] = client_width
+        if client_height is not None:
+            entry["client_height"] = client_height
+        if client_orientation is not None:
+            entry["client_orientation"] = client_orientation
+        if client_form_factor is not None:
+            entry["client_form_factor"] = client_form_factor
         entry["last_seen"] = dt_util.utcnow().isoformat()
         await self._save()
         self._fire_settings()

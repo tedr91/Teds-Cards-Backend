@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.17
+
+- **Devices report their screen on registration** — `register_device` (service + WebSocket) now accepts and stores each device's `client_width`, `client_height`, `client_orientation`, and `client_form_factor`, exposed on the device registry via `sensor.teds_settings`. The Ted's Cards frontend reports these automatically (and re-reports, throttled, when the screen changes). Pairs with Ted's Cards v1.0.80+.
+
 ### v1.0.16
 
 - **Repeating alarm/timer sounds actually repeat now** — the engine re-plays the sound every mp3-length (announce players re-announce; others re-play) instead of relying on `media_player.repeat_set`, which most players ignore for a one-shot media URL — so a repeating alert previously played only **once** on those players. It keeps looping until dismissed or the notification times out.

@@ -87,6 +87,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await manager.register_device(
             call.data["device_id"], call.data.get("area"), call.data.get("name"),
             call.data.get("media_player"),
+            client_width=call.data.get("client_width"),
+            client_height=call.data.get("client_height"),
+            client_orientation=call.data.get("client_orientation"),
+            client_form_factor=call.data.get("client_form_factor"),
         )
 
     async def pause_timer(call: ServiceCall):
@@ -141,7 +145,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "register_device", register_device, schema=vol.Schema({
         vol.Required("device_id"): cv.string, vol.Optional("area"): vol.Any(None, cv.string),
         vol.Optional("name"): vol.Any(None, cv.string),
-        vol.Optional("media_player"): vol.Any(None, cv.string)}))
+        vol.Optional("media_player"): vol.Any(None, cv.string),
+        vol.Optional("client_width"): vol.Any(None, int),
+        vol.Optional("client_height"): vol.Any(None, int),
+        vol.Optional("client_orientation"): vol.Any(None, cv.string),
+        vol.Optional("client_form_factor"): vol.Any(None, cv.string)}))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

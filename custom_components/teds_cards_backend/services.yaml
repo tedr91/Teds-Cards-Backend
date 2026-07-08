@@ -96,3 +96,7 @@ register_device:
     area: { selector: { area: {} } }
     name: { selector: { text: {} } }
     media_player: { selector: { entity: { domain: media_player } } }
+    client_width: { selector: { number: { min: 0, mode: box } } }
+    client_height: { selector: { number: { min: 0, mode: box } } }
+    client_orientation: { selector: { text: {} } }
+    client_form_factor: { selector: { text: {} } }

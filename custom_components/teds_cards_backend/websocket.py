@@ -82,6 +82,10 @@ def handle_subscribe_settings(
         vol.Optional("area"): vol.Any(None, str),
         vol.Optional("name"): vol.Any(None, str),
         vol.Optional("media_player"): vol.Any(None, str),
+        vol.Optional("client_width"): vol.Any(None, int),
+        vol.Optional("client_height"): vol.Any(None, int),
+        vol.Optional("client_orientation"): vol.Any(None, str),
+        vol.Optional("client_form_factor"): vol.Any(None, str),
     }
 )
 @websocket_api.async_response
@@ -92,7 +96,11 @@ async def handle_register_device(
     mgr = _manager(hass)
     if mgr:
         await mgr.register_device(
-            msg["device_id"], msg.get("area"), msg.get("name"), msg.get("media_player")
+            msg["device_id"], msg.get("area"), msg.get("name"), msg.get("media_player"),
+            client_width=msg.get("client_width"),
+            client_height=msg.get("client_height"),
+            client_orientation=msg.get("client_orientation"),
+            client_form_factor=msg.get("client_form_factor"),
         )
     connection.send_result(msg["id"])
 
