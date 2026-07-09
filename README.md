@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.19
+
+- **Expanded Navigation settings** — added dashboard-path settings for **Weather, Calendar, Cameras, Climate, Music, Photos, Info, and Announce**, and corrected the **Home dashboard** default to `[root]/welcome`. (New keys must exist here because the backend whitelists which settings may be written.) Pairs with Ted's Cards v1.0.83+.
+
 ### v1.0.18
 
 - **Server-side dependency detection** — a new `sensor.teds_requirements` reports which optional Ted Dashboard dependencies are present (HACS, browser_mod, Custom Icons, card-mod/UIX, layout-card, Ted's Cards, Daylight Calendar Card, Kiosk-Mode, and a weather entity). Detection runs after Home Assistant starts and re-checks when dashboards change, every 10 minutes, or via the new `check_requirements` service. Each requirement is exposed as an attribute (`ok`/`missing`/`unknown`) so dashboards can surface targeted "missing dependency" prompts with no fragile front-end detection. Pairs with the Ted Dashboard Welcome page.

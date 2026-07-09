@@ -54,9 +54,17 @@ SETTINGS_DEFAULTS = {
     "do_not_disturb": False,
     # Navigation
     "dashboard_root": "ted-dashboard",
-    "home_dashboard": "[root]/home",
+    "home_dashboard": "[root]/welcome",
     "alarms_dashboard": "[root]/alarms-timers?tab=alarms",
     "timers_dashboard": "[root]/alarms-timers?tab=timers",
+    "weather_dashboard": "[root]/weather",
+    "calendar_dashboard": "[root]/calendar-month",
+    "cameras_dashboard": "[root]/cameras",
+    "climate_dashboard": "[root]/climate",
+    "music_dashboard": "[root]/music",
+    "photos_dashboard": "[root]/photos",
+    "info_dashboard": "[root]/info",
+    "announce_dashboard": "[root]/announce",
     "auto_return_home_after": 0,
 }
 
