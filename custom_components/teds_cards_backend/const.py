@@ -61,6 +61,7 @@ SETTINGS_DEFAULTS = {
     "navbar_size": 48,
     # General
     "do_not_disturb": False,
+    "debug_mode": False,
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/welcome",

@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.25
+
+- **Debug mode setting** — added `debug_mode` to the settings store so the Ted's Cards per-device/global debug-outline toggle persists. Pairs with Ted's Cards v1.0.100+.
+
 ### v1.0.24
 
 - **Cameras list setting** — added the `cameras_list` setting and allowed list values in `set_setting`, so the Camera Card can store the available camera allow-list (global) and each device's curated camera subset. Pairs with Ted's Cards v1.0.96+.
