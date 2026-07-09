@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.23
+
+- **Navbar size setting** — added `navbar_size` to the settings store so the Ted's Cards navbar thickness can be set per-device (via the navbar's long-press menu or Settings → Navbar). Pairs with Ted's Cards v1.0.92+.
+
 ### v1.0.22
 
 - **Navbar settings** — added `navbar_auto_hide`, `navbar_auto_hide_delay`, `navbar_float`, and `navbar_position` to the settings store so the Ted's Cards navbar can be configured per-device (and driven by the navbar's long-press menu). Pairs with Ted's Cards v1.0.90+.

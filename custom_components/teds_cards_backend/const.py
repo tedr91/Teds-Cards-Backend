@@ -55,6 +55,7 @@ SETTINGS_DEFAULTS = {
     "navbar_auto_hide_delay": 5,
     "navbar_float": False,
     "navbar_position": "bottom",
+    "navbar_size": 48,
     # General
     "do_not_disturb": False,
     # Navigation
