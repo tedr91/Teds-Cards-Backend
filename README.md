@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.24
+
+- **Cameras list setting** — added the `cameras_list` setting and allowed list values in `set_setting`, so the Camera Card can store the available camera allow-list (global) and each device's curated camera subset. Pairs with Ted's Cards v1.0.96+.
+
 ### v1.0.23
 
 - **Navbar size setting** — added `navbar_size` to the settings store so the Ted's Cards navbar thickness can be set per-device (via the navbar's long-press menu or Settings → Navbar). Pairs with Ted's Cards v1.0.92+.

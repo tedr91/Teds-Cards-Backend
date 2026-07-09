@@ -50,6 +50,9 @@ SETTINGS_DEFAULTS = {
     # Media
     "media_player": None,
     "media_player_volume": 50,
+    # Cameras — ordered list of camera entity ids. Global = the available allow-list;
+    # per-device = the curated subset that device shows (empty inherits the global list).
+    "cameras_list": [],
     # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
     "navbar_auto_hide": False,
     "navbar_auto_hide_delay": 5,
