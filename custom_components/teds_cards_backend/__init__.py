@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import Unauthorized
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.start import async_at_started
@@ -71,7 +72,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def clear_notifications(call: ServiceCall):
         await manager.clear_notifications(call.data.get("area"))
 
+    async def _require_admin_for_global(call: ServiceCall) -> None:
+        """Only admins may write Global settings; device-scope writes are open."""
+        if call.data.get("scope", "global") != "global":
+            return
+        user_id = call.context.user_id
+        if user_id is None:
+            return  # internal/trusted call (no user context)
+        user = await hass.auth.async_get_user(user_id)
+        if not (user and user.is_admin):
+            raise Unauthorized(context=call.context)
+
     async def set_setting(call: ServiceCall):
+        await _require_admin_for_global(call)
         await manager.set_settings(
             {call.data["key"]: call.data.get("value")},
             scope=call.data.get("scope", "global"),
@@ -79,6 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     async def clear_setting(call: ServiceCall):
+        await _require_admin_for_global(call)
         key = call.data.get("key")
         await manager.clear_settings(
             keys=[key] if key else None,

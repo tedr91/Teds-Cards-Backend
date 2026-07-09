@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.20
+
+- **Global settings are admin-only** — the `set_setting` and `clear_setting` services now reject writes at **global** scope unless the calling user is an administrator (device-scope writes stay open for everyone, e.g. kiosk devices). Pairs with Ted's Cards v1.0.84+, which shows Global settings read-only for non-admins.
+
 ### v1.0.19
 
 - **Expanded Navigation settings** — added dashboard-path settings for **Weather, Calendar, Cameras, Climate, Music, Photos, Info, and Announce**, and corrected the **Home dashboard** default to `[root]/welcome`. (New keys must exist here because the backend whitelists which settings may be written.) Pairs with Ted's Cards v1.0.83+.
