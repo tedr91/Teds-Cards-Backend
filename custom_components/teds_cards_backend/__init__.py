@@ -14,6 +14,7 @@ from homeassistant.exceptions import Unauthorized
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.start import async_at_started
+from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
 from .store import TedsManager
@@ -25,6 +26,11 @@ PLATFORMS = [Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     manager = TedsManager(hass)
     await manager.async_load()
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        manager.version = str(integration.version) if integration.version else None
+    except Exception:  # noqa: BLE001 - version is best-effort, never block setup
+        manager.version = None
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = manager
     async_register_ws(hass)
     await _register_sound_path(hass)

@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.21
+
+- **Integration version exposed** — `sensor.teds_requirements` now includes a `version` attribute (the integration's manifest version), so dashboards and the new Ted's Cards Status Card can display the installed backend version. Pairs with Ted's Cards v1.0.86+.
+
 ### v1.0.20
 
 - **Global settings are admin-only** — the `set_setting` and `clear_setting` services now reject writes at **global** scope unless the calling user is an administrator (device-scope writes stay open for everyone, e.g. kiosk devices). Pairs with Ted's Cards v1.0.84+, which shows Global settings read-only for non-admins.

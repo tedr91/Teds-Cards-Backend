@@ -45,6 +45,8 @@ class TedsManager:
         self.device_registry: dict[str, dict] = {}
         # Server-side dependency detection results (req_id -> ok/missing/unknown).
         self.requirements: dict[str, str] = {}
+        # This integration's version (from the manifest), for status displays.
+        self.version: str | None = None
         self.playback = PlaybackEngine(self)
         self._listeners: list = []
         self._update_cbs: set = set()

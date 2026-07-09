@@ -118,5 +118,5 @@ class TedsRequirementsSensor(_Base):
     def extra_state_attributes(self):
         reqs = self._m.requirements or {}
         missing = [k for k, v in reqs.items() if v == "missing"]
-        return {**reqs, "missing": missing, "ok": not missing}
+        return {**reqs, "missing": missing, "ok": not missing, "version": self._m.version}
 
