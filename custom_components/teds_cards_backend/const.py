@@ -50,6 +50,11 @@ SETTINGS_DEFAULTS = {
     # Media
     "media_player": None,
     "media_player_volume": 50,
+    # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
+    "navbar_auto_hide": False,
+    "navbar_auto_hide_delay": 5,
+    "navbar_float": False,
+    "navbar_position": "bottom",
     # General
     "do_not_disturb": False,
     # Navigation

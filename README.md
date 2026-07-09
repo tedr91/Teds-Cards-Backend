@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.22
+
+- **Navbar settings** — added `navbar_auto_hide`, `navbar_auto_hide_delay`, `navbar_float`, and `navbar_position` to the settings store so the Ted's Cards navbar can be configured per-device (and driven by the navbar's long-press menu). Pairs with Ted's Cards v1.0.90+.
+
 ### v1.0.21
 
 - **Integration version exposed** — `sensor.teds_requirements` now includes a `version` attribute (the integration's manifest version), so dashboards and the new Ted's Cards Status Card can display the installed backend version. Pairs with Ted's Cards v1.0.86+.
