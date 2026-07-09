@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timedelta
 
 import voluptuous as vol
 
@@ -10,6 +11,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.start import async_at_started
 
 from .const import DOMAIN
 from .store import TedsManager
@@ -150,6 +153,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         vol.Optional("client_height"): vol.Any(None, int),
         vol.Optional("client_orientation"): vol.Any(None, cv.string),
         vol.Optional("client_form_factor"): vol.Any(None, cv.string)}))
+
+    async def check_requirements(call: ServiceCall):
+        await manager.refresh_requirements()
+
+    hass.services.async_register(DOMAIN, "check_requirements", check_requirements, schema=vol.Schema({}))
+
+    # Detect optional dependencies server-side. Run once HA has fully started (so
+    # all integrations + Lovelace resources are loaded), then re-check when the
+    # dashboards change and periodically.
+    async def _refresh_reqs(*_):
+        await manager.refresh_requirements()
+
+    entry.async_on_unload(async_at_started(hass, _refresh_reqs))
+    entry.async_on_unload(hass.bus.async_listen("lovelace_updated", _refresh_reqs))
+    entry.async_on_unload(async_track_time_interval(hass, _refresh_reqs, timedelta(minutes=10)))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

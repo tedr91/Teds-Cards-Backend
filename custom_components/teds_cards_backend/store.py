@@ -43,6 +43,8 @@ class TedsManager:
         self.settings: dict = {"global": {}, "devices": {}}
         # Devices that have registered themselves (device_id -> {area, name, last_seen}).
         self.device_registry: dict[str, dict] = {}
+        # Server-side dependency detection results (req_id -> ok/missing/unknown).
+        self.requirements: dict[str, str] = {}
         self.playback = PlaybackEngine(self)
         self._listeners: list = []
         self._update_cbs: set = set()
@@ -485,3 +487,10 @@ class TedsManager:
     def _notify(self):
         for cb in list(self._update_cbs):
             cb()
+
+    async def refresh_requirements(self) -> None:
+        """Re-run server-side dependency detection and update the sensor."""
+        from .requirements import compute_requirements
+
+        self.requirements = await compute_requirements(self.hass)
+        self._notify()

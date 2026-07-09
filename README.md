@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.18
+
+- **Server-side dependency detection** — a new `sensor.teds_requirements` reports which optional Ted Dashboard dependencies are present (HACS, browser_mod, Custom Icons, card-mod/UIX, layout-card, Ted's Cards, Daylight Calendar Card, Kiosk-Mode, and a weather entity). Detection runs after Home Assistant starts and re-checks when dashboards change, every 10 minutes, or via the new `check_requirements` service. Each requirement is exposed as an attribute (`ok`/`missing`/`unknown`) so dashboards can surface targeted "missing dependency" prompts with no fragile front-end detection. Pairs with the Ted Dashboard Welcome page.
+
 ### v1.0.17
 
 - **Devices report their screen on registration** — `register_device` (service + WebSocket) now accepts and stores each device's `client_width`, `client_height`, `client_orientation`, and `client_form_factor`, exposed on the device registry via `sensor.teds_settings`. The Ted's Cards frontend reports these automatically (and re-reports, throttled, when the screen changes). Pairs with Ted's Cards v1.0.80+.

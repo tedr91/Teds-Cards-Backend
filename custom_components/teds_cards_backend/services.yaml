@@ -100,3 +100,7 @@ register_device:
     client_height: { selector: { number: { min: 0, mode: box } } }
     client_orientation: { selector: { text: {} } }
     client_form_factor: { selector: { text: {} } }
+
+check_requirements:
+  name: Check requirements
+  description: Re-run server-side detection of optional dependencies (updates sensor.teds_requirements).

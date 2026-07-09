@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEntitiesCallback) -> None:
     manager = hass.data[DOMAIN][entry.entry_id]
-    add([TedsAlarmsSensor(manager), TedsTimersSensor(manager), TedsNotificationsSensor(manager), TedsSettingsSensor(manager)])
+    add([TedsAlarmsSensor(manager), TedsTimersSensor(manager), TedsNotificationsSensor(manager), TedsSettingsSensor(manager), TedsRequirementsSensor(manager)])
 
 
 class _Base(SensorEntity):
@@ -98,3 +98,25 @@ class TedsSettingsSensor(_Base):
     @property
     def extra_state_attributes(self):
         return self._m.settings_payload()
+
+
+class TedsRequirementsSensor(_Base):
+    """Server-side dependency detection. State = number of missing requirements;
+    each requirement is also exposed as an attribute (ok/missing/unknown) so
+    dashboards can gate a MessageBox with a `state` + `attribute` condition."""
+
+    _attr_name = "Teds Requirements"
+    _attr_unique_id = "teds_requirements"
+    _attr_icon = "mdi:clipboard-check"
+
+    @property
+    def native_value(self):
+        reqs = self._m.requirements or {}
+        return len([1 for v in reqs.values() if v == "missing"])
+
+    @property
+    def extra_state_attributes(self):
+        reqs = self._m.requirements or {}
+        missing = [k for k, v in reqs.items() if v == "missing"]
+        return {**reqs, "missing": missing, "ok": not missing}
+
