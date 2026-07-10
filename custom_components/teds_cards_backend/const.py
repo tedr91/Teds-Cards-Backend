@@ -64,6 +64,9 @@ SETTINGS_DEFAULTS = {
     # General
     "do_not_disturb": False,
     "debug_mode": False,
+    # Default weather entity used by Ted's weather/clock cards that opt in via
+    # `backend_integration: true`. None = the card falls back to its own default.
+    "weather_entity": None,
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/welcome",

@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.27
+
+- **Weather entity setting** — added `weather_entity` to the settings store so the Clock Weather Card's opt-in (`backend_integration: true`) can source its weather entity from a single per-device/global setting. Pairs with Ted's Cards v1.0.110+.
+
 ### v1.0.26
 
 - **Camera layout setting** — added `cameras_layout` to the settings store so the Camera Card's per-device/global layout choice persists. Pairs with Ted's Cards v1.0.108+.
