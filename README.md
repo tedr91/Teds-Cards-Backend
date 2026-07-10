@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.26
+
+- **Camera layout setting** — added `cameras_layout` to the settings store so the Camera Card's per-device/global layout choice persists. Pairs with Ted's Cards v1.0.108+.
+
 ### v1.0.25
 
 - **Debug mode setting** — added `debug_mode` to the settings store so the Ted's Cards per-device/global debug-outline toggle persists. Pairs with Ted's Cards v1.0.100+.
