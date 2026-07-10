@@ -55,6 +55,11 @@ SETTINGS_DEFAULTS = {
     "cameras_list": [],
     # How this device arranges its cameras on the Cameras view (single/quad/big-small/auto).
     "cameras_layout": "auto",
+    # Temperatures — ordered list of climate entity ids. Global = the available allow-list;
+    # per-device = the curated subset that device shows (empty inherits the global list).
+    "climate_list": [],
+    # How this device arranges its thermostats on the Climate view (auto/tabbed/vertical/horizontal).
+    "climate_layout": "auto",
     # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
     "navbar_auto_hide": False,
     "navbar_auto_hide_delay": 5,
