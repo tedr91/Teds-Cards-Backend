@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.29
+
+- **Background Wallpapers** — added the `background_*` settings (mode, size, alignment, repeat, scroll, colour + gradient, single image + recents, slideshow album/folder/type/shuffle/cycle) to the settings store. Serves the bundled wallpapers at `/teds_cards_backend/backgrounds/*` and adds a `list_backgrounds` WebSocket command that returns the built-in image catalogue grouped by general/light/dark. Pairs with Ted's Cards v1.0.131+.
+
 ### v1.0.28
 
 - **Temperatures settings** — added `climate_list` and `climate_layout` to the settings store so the new Climate Card's per-device/global thermostat list and layout persist. Pairs with Ted's Cards v1.0.115+.
