@@ -34,6 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = manager
     async_register_ws(hass)
     await _register_sound_path(hass)
+    await _register_background_path(hass)
 
     async def add_alarm(call: ServiceCall):
         await manager.add_alarm(
@@ -210,6 +211,28 @@ async def _register_sound_path(hass: HomeAssistant) -> None:
     except Exception:  # noqa: BLE001 - fall back for older HA cores
         try:
             hass.http.register_static_path(url, sounds_dir, False)
+            hass.data[flag] = True
+        except Exception:  # noqa: BLE001
+            pass
+
+
+async def _register_background_path(hass: HomeAssistant) -> None:
+    """Serve bundled wallpaper images at /teds_cards_backend/backgrounds/* (once)."""
+    flag = f"{DOMAIN}_backgrounds_registered"
+    if hass.data.get(flag):
+        return
+    backgrounds_dir = os.path.join(os.path.dirname(__file__), "backgrounds")
+    url = "/teds_cards_backend/backgrounds"
+    try:
+        from homeassistant.components.http import StaticPathConfig
+
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(url, backgrounds_dir, False)]
+        )
+        hass.data[flag] = True
+    except Exception:  # noqa: BLE001 - fall back for older HA cores
+        try:
+            hass.http.register_static_path(url, backgrounds_dir, False)
             hass.data[flag] = True
         except Exception:  # noqa: BLE001
             pass

@@ -72,6 +72,26 @@ SETTINGS_DEFAULTS = {
     # Default weather entity used by Ted's weather/clock cards that opt in via
     # `backend_integration: true`. None = the card falls back to its own default.
     "weather_entity": None,
+    # Background Wallpaper — applied by the invisible ted-background-card.
+    # mode: solid | image | slideshow | theme (theme = defer to the HA theme's background).
+    "background_mode": "solid",
+    # Common (solid/image/slideshow) — background_scroll false = fixed (attachment).
+    "background_scroll": False,
+    "background_size": "fill",        # original | fill (cover) | fit (contain)
+    "background_align": "center",     # 9 positions: top-left … bottom-right
+    "background_repeat": "tile",      # tile (repeat) | no-repeat
+    # Solid
+    "background_color": "#1f2430",
+    "background_gradient": True,
+    # Single image (URL or media-source:// uri); recents = MRU of last picks (cap 5).
+    "background_image": None,
+    "background_recent_images": [],
+    # Slideshow
+    "background_album": "builtin",    # builtin | folder
+    "background_folder": None,        # media-source:// folder uri when album = folder
+    "background_type_pref": "match",  # match | all | light | dark
+    "background_shuffle": True,
+    "background_cycle_minutes": 30,
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/welcome",

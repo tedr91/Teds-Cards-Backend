@@ -8,6 +8,8 @@ user subscribe to notifications via a dedicated, non-admin command instead.
 
 from __future__ import annotations
 
+import os
+
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
@@ -16,6 +18,11 @@ from homeassistant.core import Event, HomeAssistant, callback
 from .const import DOMAIN, EVENT_NOTIFICATION, EVENT_SETTINGS
 
 _REGISTERED = f"{DOMAIN}_ws_registered"
+
+# Bundled wallpaper folders -> the category returned to the frontend.
+_BACKGROUND_DIRS = {"general": "general", "light": "light-mode", "dark": "dark-mode"}
+_BACKGROUND_EXTS = (".webp", ".jpg", ".jpeg", ".png", ".gif", ".avif")
+_BACKGROUND_URL = "/teds_cards_backend/backgrounds"
 
 
 def _manager(hass: HomeAssistant):
@@ -31,6 +38,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, handle_subscribe_notifications)
     websocket_api.async_register_command(hass, handle_subscribe_settings)
     websocket_api.async_register_command(hass, handle_register_device)
+    websocket_api.async_register_command(hass, handle_list_backgrounds)
     hass.data[_REGISTERED] = True
 
 
@@ -103,4 +111,34 @@ async def handle_register_device(
             client_form_factor=msg.get("client_form_factor"),
         )
     connection.send_result(msg["id"])
+
+
+def _scan_backgrounds() -> dict:
+    """Enumerate bundled wallpaper images grouped by category (blocking I/O)."""
+    base = os.path.join(os.path.dirname(__file__), "backgrounds")
+    out: dict[str, list[str]] = {}
+    for category, folder in _BACKGROUND_DIRS.items():
+        path = os.path.join(base, folder)
+        try:
+            names = sorted(os.listdir(path))
+        except OSError:
+            names = []
+        out[category] = [
+            f"{_BACKGROUND_URL}/{folder}/{name}"
+            for name in names
+            if name.lower().endswith(_BACKGROUND_EXTS)
+        ]
+    return out
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/list_backgrounds"}
+)
+@websocket_api.async_response
+async def handle_list_backgrounds(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Return the bundled wallpaper image URLs grouped by category."""
+    result = await hass.async_add_executor_job(_scan_backgrounds)
+    connection.send_result(msg["id"], result)
 
