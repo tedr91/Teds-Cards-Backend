@@ -81,7 +81,7 @@ SETTINGS_DEFAULTS = {
     "background_align": "center",     # 9 positions: top-left … bottom-right
     "background_repeat": "tile",      # tile (repeat) | no-repeat
     # Solid
-    "background_color": "#1f2430",
+    "background_color": "#57608E",
     "background_gradient": True,
     # Single image (URL or media-source:// uri); recents = MRU of last picks (cap 5).
     "background_image": None,
