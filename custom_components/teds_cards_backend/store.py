@@ -47,6 +47,8 @@ class TedsManager:
         self.requirements: dict[str, str] = {}
         # This integration's version (from the manifest), for status displays.
         self.version: str | None = None
+        # media-source URI of the dedicated "Ted Dash System" wallpaper folder.
+        self.media_folder: str | None = None
         self.playback = PlaybackEngine(self)
         self._listeners: list = []
         self._update_cbs: set = set()

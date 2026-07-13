@@ -19,6 +19,10 @@ EVENT_SETTINGS = f"{DOMAIN}_settings"
 # Sentinel meaning "use the bundled default sound for this alert kind".
 DEFAULT_SOUND = "default"
 
+# Dedicated folder created under HA's local "My media" source for Ted's Cards
+# wallpaper uploads (and where the Background image/folder pickers open by default).
+MEDIA_FOLDER_NAME = "Ted Dash System"
+
 # How long (seconds) a registered device is considered "present" for server-side
 # playback targeting after its last heartbeat.
 DEVICE_PRESENCE_TTL = 900

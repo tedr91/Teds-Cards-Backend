@@ -16,7 +16,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.start import async_at_started
 from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN
+from .const import DOMAIN, MEDIA_FOLDER_NAME
 from .store import TedsManager
 from .websocket import async_register as async_register_ws
 
@@ -35,6 +35,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_register_ws(hass)
     await _register_sound_path(hass)
     await _register_background_path(hass)
+    manager.media_folder = await _ensure_media_folder(hass)
 
     async def add_alarm(call: ServiceCall):
         await manager.add_alarm(
@@ -236,6 +237,26 @@ async def _register_background_path(hass: HomeAssistant) -> None:
             hass.data[flag] = True
         except Exception:  # noqa: BLE001
             pass
+
+
+async def _ensure_media_folder(hass: HomeAssistant) -> str | None:
+    """Create a dedicated "Ted Dash System" folder under HA's local "My media"
+    source and return its media-source URI, so Background wallpaper uploads land
+    there and the media pickers can open into it.
+
+    Uses the first configured `media_dirs` entry (the default local source).
+    Best-effort: returns None if no media dir is configured or creation fails.
+    """
+    media_dirs = getattr(hass.config, "media_dirs", None) or {}
+    source_dir_id = next(iter(media_dirs), None)
+    if source_dir_id is None:
+        return None
+    folder = os.path.join(media_dirs[source_dir_id], MEDIA_FOLDER_NAME)
+    try:
+        await hass.async_add_executor_job(lambda: os.makedirs(folder, exist_ok=True))
+    except OSError:
+        return None
+    return f"media-source://media_source/{source_dir_id}/{MEDIA_FOLDER_NAME}"
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

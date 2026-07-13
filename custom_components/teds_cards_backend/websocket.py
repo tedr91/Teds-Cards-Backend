@@ -39,6 +39,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, handle_subscribe_settings)
     websocket_api.async_register_command(hass, handle_register_device)
     websocket_api.async_register_command(hass, handle_list_backgrounds)
+    websocket_api.async_register_command(hass, handle_media_folder)
     hass.data[_REGISTERED] = True
 
 
@@ -141,4 +142,18 @@ async def handle_list_backgrounds(
     """Return the bundled wallpaper image URLs grouped by category."""
     result = await hass.async_add_executor_job(_scan_backgrounds)
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/media_folder"}
+)
+@callback
+def handle_media_folder(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Return the media-source URI of the dedicated wallpaper folder (or null)."""
+    mgr = _manager(hass)
+    connection.send_result(
+        msg["id"], {"media_content_id": mgr.media_folder if mgr else None}
+    )
 
