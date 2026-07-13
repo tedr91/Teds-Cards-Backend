@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.33
+
+- **Separate music vs. system-sound players** — the alert engine now plays alarms/timers/notifications on the per-device **`system_sound_player`** setting (renamed from `media_player`), leaving the new **`music_player`** setting for the Music view. Both fall back to the device's own registered player. Pairs with Ted's Cards v1.0.153+.
+
 ### v1.0.32
 
 - **Card-first Background support** — added `background_enhance_readability` and `background_readability_strength` settings (readability scrim), and a committed `backgrounds/index.json` catalogue so the bundled wallpapers can be served over CDN to card-only users (Ted Background Card without this integration). Pairs with Ted's Cards v1.0.147+.

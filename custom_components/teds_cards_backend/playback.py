@@ -1,8 +1,9 @@
 """Server-side sound playback for Ted's Cards alerts (notifications/timers/alarms).
 
-When an alert fires, the engine resolves the target `media_player`(s) from the
+When an alert fires, the engine resolves the target `system_sound_player`(s) from the
 firing area's present devices' effective settings (falling back to the global
-media player), deduped by entity. Devices in Do Not Disturb are skipped.
+system-sound player, then the device's own registered player), deduped by entity.
+Devices in Do Not Disturb are skipped.
 
 Playing over existing media uses one of two strategies per player:
 
@@ -85,11 +86,11 @@ class PlaybackEngine:
         )
 
     def _targets(self, area):
-        """(effective_settings, media_player) for each distinct player in the fired area.
+        """(effective_settings, player) for each distinct system-sound player in the fired area.
 
         House-wide (area is None) targets every present device; otherwise only the
-        devices whose registered area matches. Falls back to the global media player
-        when no present device supplies one. Devices in DND are skipped.
+        devices whose registered area matches. Falls back to the global system-sound
+        player when no present device supplies one. Devices in DND are skipped.
         """
         m = self._m
         seen = set()
@@ -100,15 +101,15 @@ class PlaybackEngine:
             eff = m.effective_settings(did)
             if eff.get("do_not_disturb"):
                 continue
-            # Per-device / global media player, else the device's own client player.
-            mp = eff.get("media_player") or entry.get("media_player")
+            # Per-device / global system-sound player, else the device's own client player.
+            mp = eff.get("system_sound_player") or entry.get("media_player")
             if not mp or mp in seen:
                 continue
             seen.add(mp)
             out.append((eff, mp))
         if not out:
             eff = m.effective_settings(None)
-            mp = eff.get("media_player")
+            mp = eff.get("system_sound_player")
             if mp and not eff.get("do_not_disturb"):
                 out.append((eff, mp))
         return out

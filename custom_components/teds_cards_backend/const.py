@@ -52,8 +52,12 @@ SETTINGS_DEFAULTS = {
     "notification_sound_danger": DEFAULT_SOUND,
     "notification_sound_tip": DEFAULT_SOUND,
     # Media
-    "media_player": None,
-    "media_player_volume": 50,
+    # `system_sound_player` = alarms/timers/alerts/notifications; `music_player` =
+    # the Music view / Music Assistant. Both are per-device (fall back to the
+    # device's own registered player).
+    "system_sound_player": None,
+    "music_player": None,
+    "music_volume": 50,
     # Cameras — ordered list of camera entity ids. Global = the available allow-list;
     # per-device = the curated subset that device shows (empty inherits the global list).
     "cameras_list": [],
