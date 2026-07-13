@@ -93,9 +93,12 @@ SETTINGS_DEFAULTS = {
     # Slideshow
     "background_album": "builtin",    # builtin | folder
     "background_folder": None,        # media-source:// folder uri when album = folder
-    "background_type_pref": "match",  # match | all | light | dark
+    "background_type_pref": "match",  # match | all | light | dark  (UI "Mood matching")
     "background_shuffle": True,
     "background_cycle_minutes": 30,
+    # Readability — tone the wallpaper toward theme contrast via a luminance scrim.
+    "background_enhance_readability": True,
+    "background_readability_strength": 45,  # 0–100 (caps the scrim opacity)
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/welcome",

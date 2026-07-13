@@ -1,0 +1,17 @@
+{
+  "general": [
+    "Chain.webp",
+    "Leaf.webp",
+    "MinimalistMountains.webp",
+    "MountainStream.webp",
+    "RadialGradientBlue.webp",
+    "Railroad.webp",
+    "SunshineThroughMountains.webp"
+  ],
+  "light": [
+    "microsoft-fluent2-light.webp"
+  ],
+  "dark": [
+    "microsoft-fluent2-dark.webp"
+  ]
+}

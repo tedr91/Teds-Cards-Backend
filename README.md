@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.32
+
+- **Card-first Background support** — added `background_enhance_readability` and `background_readability_strength` settings (readability scrim), and a committed `backgrounds/index.json` catalogue so the bundled wallpapers can be served over CDN to card-only users (Ted Background Card without this integration). Pairs with Ted's Cards v1.0.147+.
+
 ### v1.0.31
 
 - **“Ted Dash System” media folder** — on setup the integration creates a `Ted Dash System` folder under Home Assistant's local **My media** source (the first configured `media_dirs` path) and exposes its media-source URI via a new `teds_cards_backend/media_folder` WebSocket command. Ted's Cards uses it so Background wallpaper uploads land in that folder and the image/folder pickers open into it. Pairs with Ted's Cards v1.0.146+.
