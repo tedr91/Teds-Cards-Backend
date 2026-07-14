@@ -176,7 +176,7 @@ class PlaybackEngine:
 
         for p in plays:
             if p["announce"]:
-                await self._announce(p["mp"], p["sound"])
+                await self._announce(p["mp"], p["sound"], p["volume"])
             else:
                 await self._play_once(p["mp"], p["sound"], p["volume"])
 
@@ -227,7 +227,7 @@ class PlaybackEngine:
             if notif_id not in self._active:
                 return
             if p["announce"]:
-                self.hass.async_create_task(self._announce(p["mp"], p["sound"]))
+                self.hass.async_create_task(self._announce(p["mp"], p["sound"], p.get("volume")))
             else:
                 self.hass.async_create_task(self._replay(p["mp"], p["sound"]))
             loop["cancel"] = async_call_later(self.hass, duration, _tick)
@@ -235,18 +235,24 @@ class PlaybackEngine:
         loop["cancel"] = async_call_later(self.hass, duration, _tick)
         return loop
 
-    async def _announce(self, mp, sound) -> None:
-        """Play `sound` as an announcement (native duck + auto-resume)."""
+    async def _announce(self, mp, sound, volume=None) -> None:
+        """Play `sound` as an announcement (native duck + auto-resume).
+
+        `volume` (0-100) is forwarded as `announce_volume` so announce-capable
+        players honour the configured alert volume; players that don't support it
+        simply ignore the extra and announce at their current volume.
+        """
+        data = {
+            "entity_id": mp,
+            "media_content_id": sound,
+            "media_content_type": "music",
+            "announce": True,
+        }
+        if volume is not None:
+            data["extra"] = {"announce_volume": int(float(volume))}
         try:
             await self.hass.services.async_call(
-                "media_player", "play_media",
-                {
-                    "entity_id": mp,
-                    "media_content_id": sound,
-                    "media_content_type": "music",
-                    "announce": True,
-                },
-                blocking=False,
+                "media_player", "play_media", data, blocking=False,
             )
         except Exception:  # noqa: BLE001 - a bad media_player must not break playback
             pass

@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.36
+
+- **Alert volume honored on announce-capable players** — notification/alarm/timer volumes are now applied when the target player uses the announce path (e.g. Music Assistant players), via `announce_volume`. Previously only non-announce players honored the configured volume; announce-capable players played at their current volume. Players that don't support it ignore the extra (no change for them).
+
 ### v1.0.35
 
 - **Default Music volume 5%** — the `music_volume` setting now defaults to 5 (was 50). Pairs with Ted's Cards v1.0.168+.
