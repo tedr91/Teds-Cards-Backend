@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.38
+
+- **Per-calendar options setting** — added the global **`calendar_options`** setting (a map keyed by calendar entity id) that stores per-calendar display options (name, read-only, person, icon, badge source, color) edited in Settings → Calendars and applied by Ted's Calendar card. Pairs with Ted's Cards v1.0.188+.
+
 ### v1.0.37
 
 - **Calendars setting** — added the per-device/global **`calendars_list`** setting that backs the new Ted's Calendar card (Settings → Calendars). Pairs with Ted's Cards v1.0.172+.

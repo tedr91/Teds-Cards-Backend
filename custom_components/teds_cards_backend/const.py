@@ -71,6 +71,10 @@ SETTINGS_DEFAULTS = {
     # Calendars — ordered list of calendar entity ids. Global = the available allow-list;
     # per-device = the curated subset that device shows (empty inherits the global list).
     "calendars_list": [],
+    # Per-calendar display options keyed by calendar entity id (global/calendar-wide):
+    # {entity_id: {name?, readonly?, person?, icon?, icon_source?, color?}}. Applied by
+    # Ted's Calendar card in `calendar_source: settings` mode.
+    "calendar_options": {},
     # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
     "navbar_auto_hide": False,
     "navbar_auto_hide_delay": 5,
