@@ -57,7 +57,7 @@ SETTINGS_DEFAULTS = {
     # device's own registered player).
     "system_sound_player": None,
     "music_player": None,
-    "music_volume": 50,
+    "music_volume": 5,
     # Cameras — ordered list of camera entity ids. Global = the available allow-list;
     # per-device = the curated subset that device shows (empty inherits the global list).
     "cameras_list": [],

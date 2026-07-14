@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.35
+
+- **Default Music volume 5%** — the `music_volume` setting now defaults to 5 (was 50). Pairs with Ted's Cards v1.0.168+.
+
 ### v1.0.34
 
 - **Icon set setting** — added the per-device/global **`icon_set`** setting (default `auto`) that lets Ted's Cards choose which icon family its built-in icons use. Pairs with Ted's Cards v1.0.161+.
