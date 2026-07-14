@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.37
+
+- **Calendars setting** — added the per-device/global **`calendars_list`** setting that backs the new Ted's Calendar card (Settings → Calendars). Pairs with Ted's Cards v1.0.172+.
+
 ### v1.0.36
 
 - **Alert volume honored on announce-capable players** — notification/alarm/timer volumes are now applied when the target player uses the announce path (e.g. Music Assistant players), via `announce_volume`. Previously only non-announce players honored the configured volume; announce-capable players played at their current volume. Players that don't support it ignore the extra (no change for them).
