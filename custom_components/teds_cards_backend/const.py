@@ -75,6 +75,11 @@ SETTINGS_DEFAULTS = {
     # {entity_id: {name?, readonly?, person?, icon?, icon_source?, color?}}. Applied by
     # Ted's Calendar card in `calendar_source: settings` mode.
     "calendar_options": {},
+    # Card-level Calendar appearance (used by Ted's Calendar card in settings mode when
+    # the card's own YAML doesn't set the corresponding option).
+    "calendar_name": None,        # calendar title (None/"" = no title)
+    "calendar_theme": "ha",       # ha | ted-style
+    "calendar_view": "month",     # month | week | schedule | agenda
     # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
     "navbar_auto_hide": False,
     "navbar_auto_hide_delay": 5,

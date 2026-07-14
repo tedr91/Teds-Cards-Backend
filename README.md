@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.40
+
+- **Calendar appearance settings** — added global **`calendar_name`**, **`calendar_theme`**, and **`calendar_view`** settings backing the new Name/Theme/Default view controls in Settings → Calendars. Pairs with Ted's Cards v1.0.190+.
+
 ### v1.0.39
 
 - **Fixed saving object-valued settings** — the `set_setting` service now accepts dictionary values, so per-calendar options (`calendar_options`) save correctly from Settings → Calendars. Previously saving them failed with "not a valid value for dictionary value". Pairs with Ted's Cards v1.0.188+.
