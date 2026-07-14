@@ -162,7 +162,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "clear_notifications", clear_notifications, schema=vol.Schema({
         vol.Optional("area"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "set_setting", set_setting, schema=vol.Schema({
-        vol.Required("key"): cv.string, vol.Optional("value"): vol.Any(None, bool, int, float, cv.string, list),
+        vol.Required("key"): cv.string, vol.Optional("value"): vol.Any(None, bool, int, float, cv.string, list, dict),
         vol.Optional("scope"): vol.In(["global", "device"]), vol.Optional("device_id"): cv.string}))
     hass.services.async_register(DOMAIN, "clear_setting", clear_setting, schema=vol.Schema({
         vol.Optional("key"): cv.string, vol.Optional("scope"): vol.In(["global", "device"]),

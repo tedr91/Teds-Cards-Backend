@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.39
+
+- **Fixed saving object-valued settings** — the `set_setting` service now accepts dictionary values, so per-calendar options (`calendar_options`) save correctly from Settings → Calendars. Previously saving them failed with "not a valid value for dictionary value". Pairs with Ted's Cards v1.0.188+.
+
 ### v1.0.38
 
 - **Per-calendar options setting** — added the global **`calendar_options`** setting (a map keyed by calendar entity id) that stores per-calendar display options (name, read-only, person, icon, badge source, color) edited in Settings → Calendars and applied by Ted's Calendar card. Pairs with Ted's Cards v1.0.188+.
