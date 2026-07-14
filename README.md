@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.34
+
+- **Icon set setting** — added the per-device/global **`icon_set`** setting (default `auto`) that lets Ted's Cards choose which icon family its built-in icons use. Pairs with Ted's Cards v1.0.161+.
+
 ### v1.0.33
 
 - **Separate music vs. system-sound players** — the alert engine now plays alarms/timers/notifications on the per-device **`system_sound_player`** setting (renamed from `media_player`), leaving the new **`music_player`** setting for the Music view. Both fall back to the device's own registered player. Pairs with Ted's Cards v1.0.153+.

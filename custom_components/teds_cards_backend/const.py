@@ -77,6 +77,9 @@ SETTINGS_DEFAULTS = {
     # General
     "do_not_disturb": False,
     "debug_mode": False,
+    # Icon set used by Ted's built-in icons (Status/Settings etc.). "auto" = the best
+    # installed set by priority; otherwise force a specific set (falls back to mdi).
+    "icon_set": "auto",
     # Default weather entity used by Ted's weather/clock cards that opt in via
     # `backend_integration: true`. None = the card falls back to its own default.
     "weather_entity": None,
