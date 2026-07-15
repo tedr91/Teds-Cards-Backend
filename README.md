@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.44
+
+- **View Launcher settings** — added the global **`launcher_enabled`**, **`launcher_section`**, **`launcher_combine_groups`**, **`launcher_list`**, **`launcher_options`**, **`launcher_highlight_active`**, and **`launcher_active_color`** settings backing the new auto-discovered View Launcher navbar buttons (Settings → Navbar → Launcher Buttons). Pairs with Ted's Cards v1.0.206+.
+
 ### v1.0.43
 
 - **Emphasize weekdays default** — `calendar_emphasize_weekdays` now defaults to **on**. Pairs with Ted's Cards v1.0.196+.

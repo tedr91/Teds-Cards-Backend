@@ -88,6 +88,23 @@ SETTINGS_DEFAULTS = {
     "navbar_float": False,
     "navbar_position": "bottom",
     "navbar_size": 48,
+    # View Launcher — auto-discovered, Settings-driven navbar buttons that navigate to the
+    # dashboard's views (shown on navbars with `backend_integration: true`).
+    "launcher_enabled": True,
+    # Which of the five fixed navbar sections the launcher buttons are prepended into.
+    "launcher_section": "center",  # left | mid-left | center | mid-right | right
+    # Combine views whose path/title share a prefix (e.g. Home-*) into one expandable button.
+    "launcher_combine_groups": True,
+    # Ordered list of view paths. Global = the available allow-list; per-device = the curated
+    # subset that device shows (empty inherits the global list).
+    "launcher_list": [],
+    # Per-view button options keyed by view path (global): {path: {nav_button_size?, name?,
+    # icon?, badge?, highlight?}}.
+    "launcher_options": {},
+    # Highlight the launcher button for the currently-open view (or its group).
+    "launcher_highlight_active": True,
+    # Color used for the active-view highlight (None = the theme accent / --primary-color).
+    "launcher_active_color": None,
     # General
     "do_not_disturb": False,
     "debug_mode": False,
