@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.46
+
+- **Home dashboard default** — `home_dashboard` now defaults to **`[root]/home-welcome`**, matching the renamed Home-Welcome landing view. Pairs with Ted's Cards v1.0.220+.
+
 ### v1.0.45
 
 - **View Launcher colors** — replaced `launcher_active_color` with **`launcher_button_color`** (default white) and **`launcher_highlight_color`** (default accent), backing the Button/Highlight color controls in Settings → Navbar → Launcher Buttons. Pairs with Ted's Cards v1.0.209+.
