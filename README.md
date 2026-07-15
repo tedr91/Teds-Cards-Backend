@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.43
+
+- **Emphasize weekdays default** — `calendar_emphasize_weekdays` now defaults to **on**. Pairs with Ted's Cards v1.0.196+.
+
 ### v1.0.42
 
 - **Emphasize weekdays setting** — added the global **`calendar_emphasize_weekdays`** setting backing the Settings → Calendars option that dims weekends so weekdays stand out. Pairs with Ted's Cards v1.0.195+.
