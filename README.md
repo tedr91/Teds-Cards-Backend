@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.47
+
+- **Quick launch groups setting** — added the `launcher_quick_launch` setting (default **on**) so launcher groups can single-tap to their dashboard and hold to open the popout. Pairs with Ted's Cards v1.0.224+.
+
 ### v1.0.46
 
 - **Home dashboard default** — `home_dashboard` now defaults to **`[root]/home-welcome`**, matching the renamed Home-Welcome landing view. Pairs with Ted's Cards v1.0.220+.

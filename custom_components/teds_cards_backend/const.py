@@ -95,6 +95,9 @@ SETTINGS_DEFAULTS = {
     "launcher_section": "center",  # left | mid-left | center | mid-right | right
     # Combine views whose path/title share a prefix (e.g. Home-*) into one expandable button.
     "launcher_combine_groups": True,
+    # Quick-launch groups: single tap on a group navigates to its dashboard; hold opens the
+    # group selector popout. When off, a tap opens the popout. Requires combine groups.
+    "launcher_quick_launch": True,
     # Ordered list of view paths. Global = the available allow-list; per-device = the curated
     # subset that device shows (empty inherits the global list).
     "launcher_list": [],
