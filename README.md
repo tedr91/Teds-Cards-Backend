@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.41
+
+- **Default calendar title** — the **`calendar_name`** setting now defaults to **“Family Calendar”**, so a settings-mode calendar shows that title out of the box. Pairs with Ted's Cards v1.0.190+.
+
 ### v1.0.40
 
 - **Calendar appearance settings** — added global **`calendar_name`**, **`calendar_theme`**, and **`calendar_view`** settings backing the new Name/Theme/Default view controls in Settings → Calendars. Pairs with Ted's Cards v1.0.190+.
