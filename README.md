@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.42
+
+- **Emphasize weekdays setting** — added the global **`calendar_emphasize_weekdays`** setting backing the Settings → Calendars option that dims weekends so weekdays stand out. Pairs with Ted's Cards v1.0.195+.
+
 ### v1.0.41
 
 - **Default calendar title** — the **`calendar_name`** setting now defaults to **“Family Calendar”**, so a settings-mode calendar shows that title out of the box. Pairs with Ted's Cards v1.0.190+.

@@ -80,6 +80,8 @@ SETTINGS_DEFAULTS = {
     "calendar_name": "Family Calendar",  # calendar title ("" = no title)
     "calendar_theme": "ha",       # ha | ted-style
     "calendar_view": "month",     # month | week | schedule | agenda
+    # When true, add a day_styles rule that dims weekends so weekdays stand out.
+    "calendar_emphasize_weekdays": False,
     # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
     "navbar_auto_hide": False,
     "navbar_auto_hide_delay": 5,
