@@ -103,8 +103,10 @@ SETTINGS_DEFAULTS = {
     "launcher_options": {},
     # Highlight the launcher button for the currently-open view (or its group).
     "launcher_highlight_active": True,
-    # Color used for the active-view highlight (None = the theme accent / --primary-color).
-    "launcher_active_color": None,
+    # Tint/icon color of every launcher button.
+    "launcher_button_color": "white",
+    # Ring color marking the current view's button.
+    "launcher_highlight_color": "accent",
     # General
     "do_not_disturb": False,
     "debug_mode": False,
