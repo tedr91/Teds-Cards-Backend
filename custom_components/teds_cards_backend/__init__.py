@@ -12,10 +12,11 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import Unauthorized
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
 from homeassistant.helpers.start import async_at_started
 from homeassistant.loader import async_get_integration
 
+from .bing_photos import cache_has_images as bing_cache_has_images, fetch_and_cache_bing
 from .const import DOMAIN, MEDIA_FOLDER_NAME
 from .store import TedsManager
 from .websocket import async_register as async_register_ws
@@ -190,6 +191,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(async_at_started(hass, _refresh_reqs))
     entry.async_on_unload(hass.bus.async_listen("lovelace_updated", _refresh_reqs))
     entry.async_on_unload(async_track_time_interval(hass, _refresh_reqs, timedelta(minutes=10)))
+
+    # Keep the Bing "Photo of the Day" cache fresh once a day, but only when it's
+    # already in use (non-empty) — never download for users who don't use it.
+    async def _refresh_bing(*_):
+        if await hass.async_add_executor_job(bing_cache_has_images):
+            await fetch_and_cache_bing(hass)
+
+    entry.async_on_unload(
+        async_track_time_change(hass, _refresh_bing, hour=0, minute=10, second=0)
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

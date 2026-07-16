@@ -15,6 +15,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
 
+from .bing_photos import clear_bing_cache, fetch_and_cache_bing
 from .const import DOMAIN, EVENT_NOTIFICATION, EVENT_SETTINGS
 
 _REGISTERED = f"{DOMAIN}_ws_registered"
@@ -39,6 +40,8 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, handle_subscribe_settings)
     websocket_api.async_register_command(hass, handle_register_device)
     websocket_api.async_register_command(hass, handle_list_backgrounds)
+    websocket_api.async_register_command(hass, handle_list_bing_photos)
+    websocket_api.async_register_command(hass, handle_clear_bing_photos_cache)
     websocket_api.async_register_command(hass, handle_media_folder)
     hass.data[_REGISTERED] = True
 
@@ -142,6 +145,34 @@ async def handle_list_backgrounds(
     """Return the bundled wallpaper image URLs grouped by category."""
     result = await hass.async_add_executor_job(_scan_backgrounds)
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/list_bing_photos"}
+)
+@websocket_api.async_response
+async def handle_list_bing_photos(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Ensure the Bing "Photo of the Day" cache is fresh and return its photos.
+
+    Returns ``{photos: [{url, title, copyright, startdate}, ...]}`` newest-first.
+    """
+    photos = await fetch_and_cache_bing(hass)
+    connection.send_result(msg["id"], {"photos": photos})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/clear_bing_photos_cache"}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def handle_clear_bing_photos_cache(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Delete all cached Bing images (admin only — the cache is HA-wide)."""
+    await clear_bing_cache(hass)
+    connection.send_result(msg["id"])
 
 
 @websocket_api.websocket_command(

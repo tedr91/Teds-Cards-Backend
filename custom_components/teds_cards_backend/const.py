@@ -134,11 +134,13 @@ SETTINGS_DEFAULTS = {
     "background_image": None,
     "background_recent_images": [],
     # Slideshow
-    "background_album": "builtin",    # builtin | folder
+    "background_album": "builtin",    # builtin | folder | bing_pod
     "background_folder": None,        # media-source:// folder uri when album = folder
     "background_type_pref": "match",  # match | all | light | dark  (UI "Mood matching")
     "background_shuffle": True,
     "background_cycle_minutes": 30,
+    # Max Bing "Photo of the Day" images kept in the bing_pod cache (oldest pruned).
+    "background_bing_cache_size": 100,
     # Readability — tone the wallpaper toward theme contrast via a luminance scrim.
     "background_enhance_readability": True,
     "background_readability_strength": 45,  # 0–100 (caps the scrim opacity)
