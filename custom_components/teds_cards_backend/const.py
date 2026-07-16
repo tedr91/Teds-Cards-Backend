@@ -130,6 +130,9 @@ SETTINGS_DEFAULTS = {
     # Per-device screen-brightness entity (light/number/input_number). None = auto-resolve the
     # browser_mod screen light for the device.
     "night_brightness_entity": None,
+    # Internal: per-device "day" snapshot the frontend stores while night mode is active so it can
+    # restore brightness/colour temp/on-off in the morning (or on disable). Not a user-facing field.
+    "night_day_snapshot": None,
     # Background Wallpaper — applied by the invisible ted-background-card.
     # mode: solid | image | slideshow | theme (theme = defer to the HA theme's background).
     "background_mode": "solid",

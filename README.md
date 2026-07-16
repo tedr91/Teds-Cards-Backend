@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.50
+
+- **Night mode day-value storage** — added the internal per-device `night_day_snapshot` setting that Ted's Cards uses to store your daytime screen values (brightness, colour temperature, on/off) while Automatic Night Mode is active, so they can be restored in the morning or when you disable night mode — surviving browser cache clears. Pairs with Ted's Cards v1.0.232+.
+
 ### v1.0.49
 
 - **Automatic night mode settings** — added the `night_*` settings (enabled, start/end time, dim brightness, night font colour, transition duration, and a per-device screen-brightness entity) that back Ted's Cards' new **Settings → General → Automatic night mode**. Pairs with Ted's Cards v1.0.230+.
