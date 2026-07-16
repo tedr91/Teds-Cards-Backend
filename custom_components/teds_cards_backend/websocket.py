@@ -15,7 +15,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
 
-from .bing_photos import clear_bing_cache, fetch_and_cache_bing
+from .bing_photos import clear_bing_cache, fetch_and_cache_bing, favorite_bing_photo, remove_bing_photo
 from .const import DOMAIN, EVENT_NOTIFICATION, EVENT_SETTINGS
 
 _REGISTERED = f"{DOMAIN}_ws_registered"
@@ -42,6 +42,8 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, handle_list_backgrounds)
     websocket_api.async_register_command(hass, handle_list_bing_photos)
     websocket_api.async_register_command(hass, handle_clear_bing_photos_cache)
+    websocket_api.async_register_command(hass, handle_favorite_bing_photo)
+    websocket_api.async_register_command(hass, handle_remove_bing_photo)
     websocket_api.async_register_command(hass, handle_media_folder)
     hass.data[_REGISTERED] = True
 
@@ -173,6 +175,36 @@ async def handle_clear_bing_photos_cache(
     """Delete all cached Bing images (admin only — the cache is HA-wide)."""
     await clear_bing_cache(hass)
     connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/favorite_bing_photo",
+        vol.Required("filename"): str,
+    }
+)
+@websocket_api.async_response
+async def handle_favorite_bing_photo(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Copy a cached Bing image into the favorites folder."""
+    ok = await favorite_bing_photo(hass, msg["filename"])
+    connection.send_result(msg["id"], {"success": ok})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/remove_bing_photo",
+        vol.Required("filename"): str,
+    }
+)
+@websocket_api.async_response
+async def handle_remove_bing_photo(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Delete a single cached Bing image from the cache."""
+    ok = await remove_bing_photo(hass, msg["filename"])
+    connection.send_result(msg["id"], {"success": ok})
 
 
 @websocket_api.websocket_command(

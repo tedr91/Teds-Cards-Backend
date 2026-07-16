@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 
 import aiohttp
 
@@ -29,6 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 _BING_HOST = "https://www.bing.com"
 _BING_ARCHIVE = "/HPImageArchive.aspx"
 _CACHE_DIRNAME = "bing_pod"
+_FAVORITES_DIRNAME = "favorites"
 _INDEX_NAME = "index.json"
 _URL_BASE = f"/teds_cards_backend/backgrounds/{_CACHE_DIRNAME}"
 _DEFAULT_CACHE_SIZE = 100
@@ -225,3 +227,63 @@ async def fetch_and_cache_bing(hass: HomeAssistant) -> list[dict]:
 async def clear_bing_cache(hass: HomeAssistant) -> None:
     """Delete every cached Bing image and the metadata sidecar."""
     await hass.async_add_executor_job(_clear_cache_files)
+
+
+# ── favorite / remove a single photo ──────────────────────────────────────────
+def _favorites_dir() -> str:
+    return os.path.join(os.path.dirname(__file__), "backgrounds", _FAVORITES_DIRNAME)
+
+
+def _safe_bing_name(name: str | None) -> str | None:
+    """Validate a cached-photo filename (guards against path traversal). The cache
+    stores strictly ``<startdate>.jpg`` (all-digit stem), so accept only that shape."""
+    base = os.path.basename(name or "")
+    if not base.lower().endswith(".jpg"):
+        return None
+    stem = base[:-4]
+    if not stem.isdigit():
+        return None
+    return base
+
+
+def _do_favorite(name: str) -> bool:
+    src = os.path.join(_cache_dir(), name)
+    if not os.path.isfile(src):
+        return False
+    try:
+        os.makedirs(_favorites_dir(), exist_ok=True)
+        shutil.copyfile(src, os.path.join(_favorites_dir(), name))
+        return True
+    except OSError:
+        return False
+
+
+def _do_remove(name: str) -> bool:
+    removed = False
+    try:
+        os.remove(os.path.join(_cache_dir(), name))
+        removed = True
+    except OSError:
+        removed = False
+    index = _load_index()
+    stem = name[:-4]
+    if stem in index:
+        del index[stem]
+        _save_index(index)
+    return removed
+
+
+async def favorite_bing_photo(hass: HomeAssistant, name: str) -> bool:
+    """Copy a cached Bing image into the ``favorites`` folder (for a future album)."""
+    safe = _safe_bing_name(name)
+    if not safe:
+        return False
+    return await hass.async_add_executor_job(_do_favorite, safe)
+
+
+async def remove_bing_photo(hass: HomeAssistant, name: str) -> bool:
+    """Delete a single cached Bing image and drop it from the metadata index."""
+    safe = _safe_bing_name(name)
+    if not safe:
+        return False
+    return await hass.async_add_executor_job(_do_remove, safe)
