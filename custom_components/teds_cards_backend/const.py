@@ -124,9 +124,10 @@ SETTINGS_DEFAULTS = {
     "night_enabled": True,
     "night_start": "21:00:00",           # night begins (local time, HH:MM:SS)
     "night_end": "07:00:00",             # night ends (local time)
-    "night_dim_brightness": 10,          # target screen brightness percent at night
+    "night_dim_brightness": 75,          # target screen brightness percent at night
+    "night_dim_background": 25,          # target background brightness percent at night
     "night_font_color": "red",           # font colour used during night mode
-    "night_transition_minutes": 5,       # transition duration into/out of night
+    "night_transition_minutes": 1,       # transition duration into/out of night
     # Per-device screen-brightness entity (light/number/input_number). None = auto-resolve the
     # browser_mod screen light for the device.
     "night_brightness_entity": None,
@@ -158,6 +159,8 @@ SETTINGS_DEFAULTS = {
     # Readability — tone the wallpaper toward theme contrast via a luminance scrim.
     "background_enhance_readability": True,
     "background_readability_strength": 45,  # 0–100 (caps the scrim opacity)
+    # Base background brightness (0–100). 100 = full brightness; lower dims the wallpaper at all times.
+    "background_brightness": 100,
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/home-welcome",

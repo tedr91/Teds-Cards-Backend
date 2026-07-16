@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.51
+
+- **Background brightness + night dim settings** — added the `background_brightness` (base wallpaper brightness) and `night_dim_background` (night-time background target) settings, and updated the Automatic Night Mode defaults (transition 1 min, screen dim 75%, background dim 25%). Pairs with Ted's Cards v1.0.233+.
+
 ### v1.0.50
 
 - **Night mode day-value storage** — added the internal per-device `night_day_snapshot` setting that Ted's Cards uses to store your daytime screen values (brightness, colour temperature, on/off) while Automatic Night Mode is active, so they can be restored in the morning or when you disable night mode — surviving browser cache clears. Pairs with Ted's Cards v1.0.232+.
