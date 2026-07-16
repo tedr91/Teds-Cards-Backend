@@ -82,7 +82,7 @@ SETTINGS_DEFAULTS = {
     "calendar_view": "month",     # month | week | schedule | agenda
     # When true, add a day_styles rule that dims weekends so weekdays stand out.
     "calendar_emphasize_weekdays": True,
-    # Navbar (per-device navbar behaviour; empty/false means "follow the card's YAML").
+    # Navbar (per-device navbar behavior; empty/false means "follow the card's YAML").
     "navbar_auto_hide": False,
     "navbar_auto_hide_delay": 5,
     "navbar_float": False,
@@ -120,13 +120,13 @@ SETTINGS_DEFAULTS = {
     # `backend_integration: true`. None = the card falls back to its own default.
     "weather_entity": None,
     # Automatic Night Mode — dims the background, lowers screen brightness, and switches to a
-    # night font colour on a nightly schedule, restoring day values in the morning.
+    # night font color on a nightly schedule, restoring day values in the morning.
     "night_enabled": True,
     "night_start": "21:00:00",           # night begins (local time, HH:MM:SS)
     "night_end": "07:00:00",             # night ends (local time)
     "night_dim_brightness": 75,          # target screen brightness percent at night
     "night_dim_background": 25,          # target background brightness percent at night
-    "night_font_color": "red",           # font colour used during night mode
+    "night_font_color": "red",           # font color used during night mode
     "night_transition_minutes": 1,       # transition duration into/out of night
     # Switch the device to Dark mode at night (via browser_mod), restoring the prior Auto/Light/Dark
     # setting in the morning.
@@ -135,7 +135,7 @@ SETTINGS_DEFAULTS = {
     # browser_mod screen light for the device.
     "night_brightness_entity": None,
     # Internal: per-device "day" snapshot the frontend stores while night mode is active so it can
-    # restore brightness/colour temp/on-off in the morning (or on disable). Not a user-facing field.
+    # restore brightness/color temp/on-off in the morning (or on disable). Not a user-facing field.
     "night_day_snapshot": None,
     # Background Wallpaper — applied by the invisible ted-background-card.
     # mode: solid | image | slideshow | theme (theme = defer to the HA theme's background).
