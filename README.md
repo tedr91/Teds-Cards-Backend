@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.53
+
+- **Night mode transition in seconds** — renamed `night_transition_minutes` → `night_transition_seconds` (default 30). Pairs with Ted's Cards v1.0.237+.
+
 ### v1.0.52
 
 - **Night mode Dark-mode setting** — added the `night_dark_mode` setting (default on) that lets Automatic Night Mode switch the device to Dark theme mode at night and restore the prior Auto/Light/Dark setting in the morning. Pairs with Ted's Cards v1.0.234+.
