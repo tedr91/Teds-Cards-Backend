@@ -16,9 +16,11 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
+    config_validation as cv,
     device_registry as dr,
     intent,
 )
+import voluptuous as vol
 
 from .const import (
     DOMAIN,
@@ -37,7 +39,13 @@ _REGISTERED = f"{DOMAIN}_intents_registered"
 # Ted's alarms store weekdays as Python weekday ints (Monday = 0).
 _WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 _DAY_TOKEN_TO_INT = {
-    "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6,
+    "mon": 0, "monday": 0,
+    "tue": 1, "tuesday": 1,
+    "wed": 2, "wednesday": 2,
+    "thu": 3, "thursday": 3,
+    "fri": 4, "friday": 4,
+    "sat": 5, "saturday": 5,
+    "sun": 6, "sunday": 6,
 }
 _EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
 _WEEKDAYS = [0, 1, 2, 3, 4]
@@ -138,15 +146,18 @@ def _spoken_time(hhmm: str) -> str:
 
 
 def _days_from_set(dayset: str | None) -> list[int]:
-    """Map a spoken day set token to Ted's weekday-int list (Monday = 0)."""
-    if not dayset or dayset == "daily":
+    """Map a spoken/typed day set to Ted's weekday-int list (Monday = 0)."""
+    if not dayset:
         return list(_EVERY_DAY)
-    if dayset == "weekdays":
+    token = str(dayset).strip().casefold()
+    if token in ("daily", "every day", "everyday", "all"):
+        return list(_EVERY_DAY)
+    if token in ("weekdays", "weekday"):
         return list(_WEEKDAYS)
-    if dayset == "weekends":
+    if token in ("weekends", "weekend"):
         return list(_WEEKENDS)
-    if dayset in _DAY_TOKEN_TO_INT:
-        return [_DAY_TOKEN_TO_INT[dayset]]
+    if token in _DAY_TOKEN_TO_INT:
+        return [_DAY_TOKEN_TO_INT[token]]
     return list(_EVERY_DAY)
 
 
@@ -191,6 +202,28 @@ def _speech(intent_obj: intent.Intent, text: str) -> intent.IntentResponse:
     return response
 
 
+# Slot-schema fragments. Presence of a `slot_schema` is what lets LLM
+# conversation agents (OpenAI, Gemini, etc.) call these as tools with typed
+# parameters — the default agent fills the same slots from spoken sentences.
+# `preferred_area_id` is stripped from the LLM tool and auto-filled from the
+# calling device's area (see IntentTool), giving free per-room scoping.
+_TIME_SLOTS = {
+    vol.Optional("hour", description="Hour of day in 24-hour format (0-23)"): vol.All(
+        vol.Coerce(int), vol.Range(min=0, max=23)
+    ),
+    vol.Optional("minute", description="Minute (0-59)"): vol.All(
+        vol.Coerce(int), vol.Range(min=0, max=59)
+    ),
+    vol.Optional("meridiem", description="am or pm; omit if hour is 24-hour"): vol.In(
+        ["am", "pm"]
+    ),
+}
+_AREA_SLOTS = {
+    vol.Optional("area", description="Area/room name to scope to"): cv.string,
+    vol.Optional("preferred_area_id"): cv.string,
+}
+
+
 # ── alarm intents ───────────────────────────────────────────
 
 
@@ -198,7 +231,16 @@ class AddAlarmIntent(intent.IntentHandler):
     """Create an alarm from a spoken time (and optional day set / name)."""
 
     intent_type = INTENT_ADD_ALARM
-    description = "Add an alarm to Ted's Cards for a given time"
+    description = "Add or schedule an alarm at a given time in Ted's Cards"
+    slot_schema = {
+        **_TIME_SLOTS,
+        vol.Optional(
+            "dayset",
+            description="Repeat days: 'every day', 'weekdays', 'weekends', or a weekday name",
+        ): cv.string,
+        vol.Optional("name", description="Optional label for the alarm"): cv.string,
+        **_AREA_SLOTS,
+    }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
@@ -227,6 +269,7 @@ class ListAlarmsIntent(intent.IntentHandler):
 
     intent_type = INTENT_LIST_ALARMS
     description = "List the alarms in Ted's Cards"
+    slot_schema = {**_AREA_SLOTS}
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
@@ -265,6 +308,12 @@ class SetAlarmEnabledIntent(intent.IntentHandler):
             "Enable an alarm in Ted's Cards" if enabled
             else "Disable an alarm in Ted's Cards"
         )
+        self.slot_schema = {
+            vol.Optional(
+                "name", description="Label of the alarm to match"
+            ): cv.string,
+            **_TIME_SLOTS,
+        }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
@@ -296,6 +345,10 @@ class RemoveAlarmIntent(intent.IntentHandler):
 
     intent_type = INTENT_REMOVE_ALARM
     description = "Remove an alarm from Ted's Cards"
+    slot_schema = {
+        vol.Optional("name", description="Label of the alarm to match"): cv.string,
+        **_TIME_SLOTS,
+    }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
@@ -335,6 +388,7 @@ class ReadNotificationsIntent(intent.IntentHandler):
 
     intent_type = INTENT_READ_NOTIFICATIONS
     description = "Read Ted's Cards notifications"
+    slot_schema = {**_AREA_SLOTS}
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
@@ -365,6 +419,12 @@ class ClearNotificationsIntent(intent.IntentHandler):
 
     intent_type = INTENT_CLEAR_NOTIFICATIONS
     description = "Clear Ted's Cards notifications"
+    slot_schema = {
+        **_AREA_SLOTS,
+        vol.Optional(
+            "scope", description="Set to 'all' to clear notifications everywhere"
+        ): vol.In(["all"]),
+    }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
@@ -385,6 +445,12 @@ class MarkNotificationsReadIntent(intent.IntentHandler):
 
     intent_type = INTENT_MARK_NOTIFICATIONS_READ
     description = "Mark Ted's Cards notifications as read"
+    slot_schema = {
+        **_AREA_SLOTS,
+        vol.Optional(
+            "scope", description="Set to 'all' to mark every area's notifications read"
+        ): vol.In(["all"]),
+    }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass

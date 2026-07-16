@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.58
+
+- **Voice control with LLM agents** — the alarm and notification intents now expose typed parameters (`slot_schema`), so LLM-based conversation agents (OpenAI, Gemini, etc.) can actually call them as tools. Requests are auto-scoped to the calling device's area. Requires the agent to have *Control Home Assistant* set to *Assist*.
+
 ### v1.0.57
 
 - **Voice control (Assist)** — added custom Assist intents for **alarms** (add, list, enable, disable, remove) and **notifications** (read, clear, mark read), backed by the existing services. Requests are scoped to the voice satellite's area, so the same phrase works from any device. English sentences are installed automatically into `custom_sentences/en/`. Examples: *"set an alarm for 7am on weekdays"*, *"what alarms do I have"*, *"disable my morning alarm"*, *"read my notifications"*, *"clear my notifications"*. (First install may require one Home Assistant restart before voice works.)
