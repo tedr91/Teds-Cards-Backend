@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.54
+
+- **Background brightness default** — the base `background_brightness` default is now **75** (was 100). Pairs with Ted's Cards v1.0.238+.
+
 ### v1.0.53
 
 - **Night mode transition in seconds** — renamed `night_transition_minutes` → `night_transition_seconds` (default 30). Pairs with Ted's Cards v1.0.237+.

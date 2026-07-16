@@ -163,7 +163,7 @@ SETTINGS_DEFAULTS = {
     "background_enhance_readability": True,
     "background_readability_strength": 45,  # 0–100 (caps the scrim opacity)
     # Base background brightness (0–100). 100 = full brightness; lower dims the wallpaper at all times.
-    "background_brightness": 100,
+    "background_brightness": 75,
     # Navigation
     "dashboard_root": "ted-dashboard",
     "home_dashboard": "[root]/home-welcome",
