@@ -119,6 +119,17 @@ SETTINGS_DEFAULTS = {
     # Default weather entity used by Ted's weather/clock cards that opt in via
     # `backend_integration: true`. None = the card falls back to its own default.
     "weather_entity": None,
+    # Automatic Night Mode — dims the background, lowers screen brightness, and switches to a
+    # night font colour on a nightly schedule, restoring day values in the morning.
+    "night_enabled": True,
+    "night_start": "21:00:00",           # night begins (local time, HH:MM:SS)
+    "night_end": "07:00:00",             # night ends (local time)
+    "night_dim_brightness": 10,          # target screen brightness percent at night
+    "night_font_color": "red",           # font colour used during night mode
+    "night_transition_minutes": 5,       # transition duration into/out of night
+    # Per-device screen-brightness entity (light/number/input_number). None = auto-resolve the
+    # browser_mod screen light for the device.
+    "night_brightness_entity": None,
     # Background Wallpaper — applied by the invisible ted-background-card.
     # mode: solid | image | slideshow | theme (theme = defer to the HA theme's background).
     "background_mode": "solid",

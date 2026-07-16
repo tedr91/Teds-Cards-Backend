@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.49
+
+- **Automatic night mode settings** — added the `night_*` settings (enabled, start/end time, dim brightness, night font colour, transition duration, and a per-device screen-brightness entity) that back Ted's Cards' new **Settings → General → Automatic night mode**. Pairs with Ted's Cards v1.0.230+.
+
 ### v1.0.48
 
 - **Bing Photo of the Day source** — new `list_bing_photos` / `clear_bing_photos_cache` (admin) WebSocket commands and a `bing_pod` image cache that downloads Bing's daily wallpapers (last 8 days, market auto-detected from your HA locale) into an isolated `backgrounds/bing_pod/` folder and serves them locally with title/copyright attribution. A daily refresh keeps it current, and the new `background_bing_cache_size` setting (default 100) caps how many photos are kept. Pairs with Ted's Cards v1.0.227+.
