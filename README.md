@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.57
+
+- **Voice control (Assist)** — added custom Assist intents for **alarms** (add, list, enable, disable, remove) and **notifications** (read, clear, mark read), backed by the existing services. Requests are scoped to the voice satellite's area, so the same phrase works from any device. English sentences are installed automatically into `custom_sentences/en/`. Examples: *"set an alarm for 7am on weekdays"*, *"what alarms do I have"*, *"disable my morning alarm"*, *"read my notifications"*, *"clear my notifications"*. (First install may require one Home Assistant restart before voice works.)
+
 ### v1.0.56
 
 - **Wallpaper defaults** — the Background Wallpaper now defaults to **Slideshow** mode with the **Bing Photo of the Day** album (`background_mode: slideshow`, `background_album: bing_pod`) for new/unset devices. Pairs with Ted's Cards v1.0.245+.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from datetime import timedelta
 
 import voluptuous as vol
@@ -18,6 +19,7 @@ from homeassistant.loader import async_get_integration
 
 from .bing_photos import cache_has_images as bing_cache_has_images, fetch_and_cache_bing
 from .const import DOMAIN, MEDIA_FOLDER_NAME
+from .intents import async_register_intents
 from .store import TedsManager
 from .websocket import async_register as async_register_ws
 
@@ -34,6 +36,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         manager.version = None
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = manager
     async_register_ws(hass)
+    async_register_intents(hass)
+    await _install_sentences(hass)
     await _register_sound_path(hass)
     await _register_background_path(hass)
     manager.media_folder = await _ensure_media_folder(hass)
@@ -204,6 +208,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _install_sentences(hass: HomeAssistant) -> None:
+    """Install bundled Assist sentences into <config>/custom_sentences/<lang>/.
+
+    The default conversation agent only auto-loads sentences from that folder,
+    so a bundled integration must copy them there. Best-effort: never blocks
+    setup. Reloads the conversation agent when the file changed so voice works
+    without a restart.
+    """
+    src = os.path.join(os.path.dirname(__file__), "sentences", "en.yaml")
+    dest_dir = hass.config.path("custom_sentences", "en")
+    dest = os.path.join(dest_dir, f"{DOMAIN}.yaml")
+
+    def _copy_if_changed() -> bool:
+        try:
+            if not os.path.exists(src):
+                return False
+            os.makedirs(dest_dir, exist_ok=True)
+            if os.path.exists(dest) and os.path.getmtime(dest) >= os.path.getmtime(src):
+                return False
+            shutil.copyfile(src, dest)
+            return True
+        except OSError:
+            return False
+
+    changed = await hass.async_add_executor_job(_copy_if_changed)
+    if changed and hass.services.has_service("conversation", "reload"):
+        try:
+            await hass.services.async_call("conversation", "reload", {}, blocking=False)
+        except Exception:  # noqa: BLE001 - reload is best-effort
+            pass
 
 
 async def _register_sound_path(hass: HomeAssistant) -> None:

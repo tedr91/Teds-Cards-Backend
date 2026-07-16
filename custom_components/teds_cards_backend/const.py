@@ -16,6 +16,16 @@ EVENT_TIMER_FINISHED = f"{DOMAIN}_timer_finished"
 EVENT_NOTIFICATION = f"{DOMAIN}_notification"
 EVENT_SETTINGS = f"{DOMAIN}_settings"
 
+# Custom Assist intent type names (registered in intents.py + sentences/en.yaml).
+INTENT_ADD_ALARM = "TedsAddAlarm"
+INTENT_LIST_ALARMS = "TedsListAlarms"
+INTENT_ENABLE_ALARM = "TedsEnableAlarm"
+INTENT_DISABLE_ALARM = "TedsDisableAlarm"
+INTENT_REMOVE_ALARM = "TedsRemoveAlarm"
+INTENT_READ_NOTIFICATIONS = "TedsReadNotifications"
+INTENT_CLEAR_NOTIFICATIONS = "TedsClearNotifications"
+INTENT_MARK_NOTIFICATIONS_READ = "TedsMarkNotificationsRead"
+
 # Sentinel meaning "use the bundled default sound for this alert kind".
 DEFAULT_SOUND = "default"
 

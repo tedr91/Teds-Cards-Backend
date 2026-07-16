@@ -1,0 +1,104 @@
+# Ted's Cards Backend — English Assist sentences.
+#
+# Installed into <config>/custom_sentences/en/teds_cards_backend.yaml at setup
+# (that's the only folder the default conversation agent auto-loads). Handlers
+# are registered in intents.py.
+language: en
+intents:
+  TedsAddAlarm:
+    data:
+      - sentences:
+          - "(set|add|create|schedule) an alarm for {hour}[:{minute}] [{meridiem}][ {dayset}]"
+          - "(set|add|create|schedule) an alarm at {hour}[:{minute}] [{meridiem}][ {dayset}]"
+          - "(set|add|create|schedule) an alarm for {hour}[:{minute}] [{meridiem}][ {dayset}] named {name}"
+          - "wake me up at {hour}[:{minute}] [{meridiem}][ {dayset}]"
+  TedsListAlarms:
+    data:
+      - sentences:
+          - "(list|show|read) [me] [my] alarms"
+          - "what alarms do i have"
+          - "what are my alarms"
+          - "do i have any alarms [set]"
+  TedsEnableAlarm:
+    data:
+      - sentences:
+          - "(enable|turn on|activate) [the|my] {name} alarm"
+          - "(enable|turn on|activate) the alarm for {hour}[:{minute}] [{meridiem}]"
+  TedsDisableAlarm:
+    data:
+      - sentences:
+          - "(disable|turn off|deactivate) [the|my] {name} alarm"
+          - "(disable|turn off|deactivate) the alarm for {hour}[:{minute}] [{meridiem}]"
+  TedsRemoveAlarm:
+    data:
+      - sentences:
+          - "(delete|remove|cancel) [the|my] {name} alarm"
+          - "(delete|remove|cancel) the alarm for {hour}[:{minute}] [{meridiem}]"
+  TedsReadNotifications:
+    data:
+      - sentences:
+          - "(read|list|show) [me] [my|the] notifications"
+          - "what notifications do i have"
+          - "what are my notifications"
+          - "do i have any [new] notifications"
+  TedsClearNotifications:
+    data:
+      - sentences:
+          - "(clear|delete|dismiss) [all|my|the] notifications [{scope}]"
+  TedsMarkNotificationsRead:
+    data:
+      - sentences:
+          - "mark [my|the|all] notifications [as] read"
+lists:
+  hour:
+    range:
+      type: number
+      from: 0
+      to: 23
+  minute:
+    range:
+      type: number
+      from: 0
+      to: 59
+  meridiem:
+    values:
+      - in: "(am|a m)"
+        out: "am"
+      - in: "(pm|p m)"
+        out: "pm"
+      - in: "in the morning"
+        out: "am"
+      - in: "in the (afternoon|evening)"
+        out: "pm"
+  dayset:
+    values:
+      - in: "(every day|everyday|daily)"
+        out: "daily"
+      - in: "[(on|during the|every) ]weekdays"
+        out: "weekdays"
+      - in: "[(on|during) ]the week"
+        out: "weekdays"
+      - in: "[(on|every) ]weekends"
+        out: "weekends"
+      - in: "[(on|every) ]the weekend"
+        out: "weekends"
+      - in: "[(on|every) ]monday[s]"
+        out: "mon"
+      - in: "[(on|every) ]tuesday[s]"
+        out: "tue"
+      - in: "[(on|every) ]wednesday[s]"
+        out: "wed"
+      - in: "[(on|every) ]thursday[s]"
+        out: "thu"
+      - in: "[(on|every) ]friday[s]"
+        out: "fri"
+      - in: "[(on|every) ]saturday[s]"
+        out: "sat"
+      - in: "[(on|every) ]sunday[s]"
+        out: "sun"
+  scope:
+    values:
+      - in: "(everywhere|in all rooms|house wide)"
+        out: "all"
+  name:
+    wildcard: true
