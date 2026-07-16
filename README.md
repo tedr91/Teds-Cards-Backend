@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.52
+
+- **Night mode Dark-mode setting** — added the `night_dark_mode` setting (default on) that lets Automatic Night Mode switch the device to Dark theme mode at night and restore the prior Auto/Light/Dark setting in the morning. Pairs with Ted's Cards v1.0.234+.
+
 ### v1.0.51
 
 - **Background brightness + night dim settings** — added the `background_brightness` (base wallpaper brightness) and `night_dim_background` (night-time background target) settings, and updated the Automatic Night Mode defaults (transition 1 min, screen dim 75%, background dim 25%). Pairs with Ted's Cards v1.0.233+.

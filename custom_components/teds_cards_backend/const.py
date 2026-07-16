@@ -128,6 +128,9 @@ SETTINGS_DEFAULTS = {
     "night_dim_background": 25,          # target background brightness percent at night
     "night_font_color": "red",           # font colour used during night mode
     "night_transition_minutes": 1,       # transition duration into/out of night
+    # Switch the device to Dark mode at night (via browser_mod), restoring the prior Auto/Light/Dark
+    # setting in the morning.
+    "night_dark_mode": True,
     # Per-device screen-brightness entity (light/number/input_number). None = auto-resolve the
     # browser_mod screen light for the device.
     "night_brightness_entity": None,
