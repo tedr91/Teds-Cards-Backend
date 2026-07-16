@@ -139,7 +139,7 @@ SETTINGS_DEFAULTS = {
     "night_day_snapshot": None,
     # Background Wallpaper — applied by the invisible ted-background-card.
     # mode: solid | image | slideshow | theme (theme = defer to the HA theme's background).
-    "background_mode": "solid",
+    "background_mode": "slideshow",
     # Common (solid/image/slideshow) — background_scroll false = fixed (attachment).
     "background_scroll": False,
     "background_size": "fill",        # original | fill (cover) | fit (contain)
@@ -152,7 +152,7 @@ SETTINGS_DEFAULTS = {
     "background_image": None,
     "background_recent_images": [],
     # Slideshow
-    "background_album": "builtin",    # builtin | folder | bing_pod
+    "background_album": "bing_pod",   # builtin | folder | bing_pod
     "background_folder": None,        # media-source:// folder uri when album = folder
     "background_type_pref": "match",  # match | all | light | dark  (UI "Mood matching")
     "background_shuffle": True,

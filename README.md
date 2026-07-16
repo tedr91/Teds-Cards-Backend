@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.56
+
+- **Wallpaper defaults** — the Background Wallpaper now defaults to **Slideshow** mode with the **Bing Photo of the Day** album (`background_mode: slideshow`, `background_album: bing_pod`) for new/unset devices. Pairs with Ted's Cards v1.0.245+.
+
 ### v1.0.55
 
 - **Bing photo actions** — added the `favorite_bing_photo` and `remove_bing_photo` WebSocket commands. Favorite copies a cached Bing image into a new `backgrounds/favorites/` folder (isolated from Built-in, for a future album); Remove deletes a single cached image and drops it from the index. Pairs with Ted's Cards v1.0.239+.
