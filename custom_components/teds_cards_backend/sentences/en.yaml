@@ -11,6 +11,7 @@ intents:
           - "(set|add|create|schedule) an alarm for {hour}[:{minute}] [{meridiem}][ {dayset}]"
           - "(set|add|create|schedule) an alarm at {hour}[:{minute}] [{meridiem}][ {dayset}]"
           - "(set|add|create|schedule) an alarm for {hour}[:{minute}] [{meridiem}][ {dayset}] named {name}"
+          - "(set|add|create|schedule) (a|an) {scope} alarm (for|at) {hour}[:{minute}] [{meridiem}][ {dayset}]"
           - "wake me up at {hour}[:{minute}] [{meridiem}][ {dayset}]"
   TedsListAlarms:
     data:
@@ -98,7 +99,9 @@ lists:
         out: "sun"
   scope:
     values:
-      - in: "(everywhere|in all rooms|house wide)"
+      - in: "(everywhere|in all rooms|all rooms|house wide|home wide)"
+        out: "all"
+      - in: "(whole home|whole house|unscoped)"
         out: "all"
   name:
     wildcard: true

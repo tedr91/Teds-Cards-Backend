@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.59
+
+- **Whole-home alarms by voice** — you can now explicitly create a house-wide alarm regardless of which device you ask from, e.g. *"set a whole home alarm for 7am"*, *"set an everywhere alarm for 6:30"*, or *"set an unscoped alarm for 8"*. (Without this, alarms are scoped to the requesting device's area.)
+
 ### v1.0.58
 
 - **Voice control with LLM agents** — the alarm and notification intents now expose typed parameters (`slot_schema`), so LLM-based conversation agents (OpenAI, Gemini, etc.) can actually call them as tools. Requests are auto-scoped to the calling device's area. Requires the agent to have *Control Home Assistant* set to *Assist*.

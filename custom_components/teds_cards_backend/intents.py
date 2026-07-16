@@ -239,6 +239,10 @@ class AddAlarmIntent(intent.IntentHandler):
             description="Repeat days: 'every day', 'weekdays', 'weekends', or a weekday name",
         ): cv.string,
         vol.Optional("name", description="Optional label for the alarm"): cv.string,
+        vol.Optional(
+            "scope",
+            description="Set to 'all' for a whole-home alarm instead of scoping it to this room",
+        ): vol.In(["all"]),
         **_AREA_SLOTS,
     }
 
@@ -254,13 +258,15 @@ class AddAlarmIntent(intent.IntentHandler):
 
         hhmm = _to_24h(hour, _slot(intent_obj, "minute") or 0, _slot(intent_obj, "meridiem"))
         days = _days_from_set(_slot(intent_obj, "dayset"))
-        area_id = _resolve_area(hass, intent_obj)
+        whole_home = _slot(intent_obj, "scope") == "all"
+        area_id = None if whole_home else _resolve_area(hass, intent_obj)
         label = _slot(intent_obj, "name") or f"{_spoken_time(hhmm)} alarm"
 
         await mgr.add_alarm(str(label), hhmm, days, location=area_id)
+        where = " for the whole home" if whole_home else ""
         return _speech(
             intent_obj,
-            f"Alarm set for {_spoken_time(hhmm)} {_spoken_days(days)}.",
+            f"Alarm set for {_spoken_time(hhmm)} {_spoken_days(days)}{where}.",
         )
 
 
