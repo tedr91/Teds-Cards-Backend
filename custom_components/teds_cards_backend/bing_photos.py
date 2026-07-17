@@ -32,6 +32,7 @@ _BING_ARCHIVE = "/HPImageArchive.aspx"
 _CACHE_DIRNAME = "bing_pod"
 _FAVORITES_DIRNAME = "favorites"
 _INDEX_NAME = "index.json"
+_REMOVED_NAME = "removed.json"
 _URL_BASE = f"/teds_cards_backend/backgrounds/{_CACHE_DIRNAME}"
 _DEFAULT_CACHE_SIZE = 100
 _FETCH_DAYS = 8  # Bing's archive exposes up to the last 8 days.
@@ -44,6 +45,10 @@ def _cache_dir() -> str:
 
 def _index_path() -> str:
     return os.path.join(_cache_dir(), _INDEX_NAME)
+
+
+def _removed_path() -> str:
+    return os.path.join(_cache_dir(), _REMOVED_NAME)
 
 
 def _bing_mkt(hass: HomeAssistant) -> str:
@@ -90,6 +95,25 @@ def _save_index(index: dict) -> None:
     try:
         with open(_index_path(), "w", encoding="utf-8") as fh:
             json.dump(index, fh)
+    except OSError:
+        pass
+
+
+def _load_removed() -> set[str]:
+    """The set of startdates the user explicitly removed (so they're never
+    re-downloaded by the 8-day fetch, on any device)."""
+    try:
+        with open(_removed_path(), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return {str(x) for x in data} if isinstance(data, list) else set()
+    except (OSError, ValueError):
+        return set()
+
+
+def _save_removed(removed: set[str]) -> None:
+    try:
+        with open(_removed_path(), "w", encoding="utf-8") as fh:
+            json.dump(sorted(removed), fh)
     except OSError:
         pass
 
@@ -146,6 +170,9 @@ def _clear_cache_files() -> None:
     except OSError:
         return
     for name in names:
+        # Keep the blocklist so removed photos stay gone even after a cache clear.
+        if name == _REMOVED_NAME:
+            continue
         try:
             os.remove(os.path.join(directory, name))
         except OSError:
@@ -187,6 +214,7 @@ async def fetch_and_cache_bing(hass: HomeAssistant) -> list[dict]:
     session = async_get_clientsession(hass)
     mkt = _bing_mkt(hass)
     index = await hass.async_add_executor_job(_load_index)
+    removed = await hass.async_add_executor_job(_load_removed)
 
     try:
         params = {"format": "js", "idx": "0", "n": str(_FETCH_DAYS), "mkt": mkt}
@@ -204,10 +232,15 @@ async def fetch_and_cache_bing(hass: HomeAssistant) -> list[dict]:
 
     await hass.async_add_executor_job(_ensure_dir)
 
+    fetched_dates: list[str] = []
     for img in images:
         startdate = str(img.get("startdate") or "").strip()
         urlbase = str(img.get("urlbase") or "").strip()
         if not startdate or not urlbase:
+            continue
+        fetched_dates.append(startdate)
+        # Skip images the user explicitly removed — never re-download them.
+        if startdate in removed:
             continue
         filename = f"{startdate}.jpg"
         dest = os.path.join(_cache_dir(), filename)
@@ -220,6 +253,14 @@ async def fetch_and_cache_bing(hass: HomeAssistant) -> list[dict]:
             "copyright": str(img.get("copyright") or "").strip(),
             "startdate": startdate,
         }
+
+    # Bound the blocklist: drop entries older than Bing's current 8-day window
+    # (Bing won't serve them again, so they can't reappear anyway).
+    if fetched_dates:
+        oldest = min(fetched_dates)
+        pruned = {d for d in removed if d >= oldest}
+        if pruned != removed:
+            await hass.async_add_executor_job(_save_removed, pruned)
 
     return await hass.async_add_executor_job(_reconcile_and_prune, index, _cache_size(hass))
 
@@ -265,11 +306,16 @@ def _do_remove(name: str) -> bool:
         removed = True
     except OSError:
         removed = False
-    index = _load_index()
     stem = name[:-4]
+    index = _load_index()
     if stem in index:
         del index[stem]
         _save_index(index)
+    # Blocklist it so the 8-day fetch never re-downloads it (on any device).
+    blocked = _load_removed()
+    if stem not in blocked:
+        blocked.add(stem)
+        _save_removed(blocked)
     return removed
 
 

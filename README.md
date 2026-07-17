@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.62
+
+- **Removed Bing photos stay removed** — deleting a Bing Photo of the Day from the info flyout now records it in a persistent blocklist (`bing_pod/removed.json`), so the daily 8-day fetch no longer re-downloads it and it won't reappear on any device. The blocklist self-bounds to Bing's 8-day window and survives a cache clear.
+
 ### v1.0.61
 
 - **Voice: navigate the dashboard** — new Assist intents to show a view (*"show cameras"*, *"go to music"*, *"open climate"*, …) covering Cameras, Climate, Weather, Music, Calendar and Home. Changing a thermostat or starting music by voice also nudges that room's screen to the matching view (new `nav_follow_actions` setting, on by default), and *"what's the weather"* answers **and** opens the Weather view. Navigation is scoped to the room you ask from. Pairs with Ted's Cards v1.0.247+.
