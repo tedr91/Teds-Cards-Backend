@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.60
+
+- **Fix: integration failed to set up** — a voice-intent handler assigned its slot schema incorrectly, which crashed setup on v1.0.58/v1.0.59 (the integration showed as "not installed"). Fixed; the integration now loads normally.
+
 ### v1.0.59
 
 - **Whole-home alarms by voice** — you can now explicitly create a house-wide alarm regardless of which device you ask from, e.g. *"set a whole home alarm for 7am"*, *"set an everywhere alarm for 6:30"*, or *"set an unscoped alarm for 8"*. (Without this, alarms are scoped to the requesting device's area.)

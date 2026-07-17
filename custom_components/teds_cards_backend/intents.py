@@ -307,6 +307,13 @@ class ListAlarmsIntent(intent.IntentHandler):
 class SetAlarmEnabledIntent(intent.IntentHandler):
     """Enable or disable a matched alarm."""
 
+    # `slot_schema` is a read-only property on the base class, so it must be
+    # overridden as a class attribute (not set on the instance in __init__).
+    slot_schema = {
+        vol.Optional("name", description="Label of the alarm to match"): cv.string,
+        **_TIME_SLOTS,
+    }
+
     def __init__(self, intent_type: str, enabled: bool) -> None:
         self.intent_type = intent_type
         self._enabled = enabled
@@ -314,12 +321,6 @@ class SetAlarmEnabledIntent(intent.IntentHandler):
             "Enable an alarm in Ted's Cards" if enabled
             else "Disable an alarm in Ted's Cards"
         )
-        self.slot_schema = {
-            vol.Optional(
-                "name", description="Label of the alarm to match"
-            ): cv.string,
-            **_TIME_SLOTS,
-        }
 
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         hass = intent_obj.hass
