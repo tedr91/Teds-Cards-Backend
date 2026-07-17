@@ -24,14 +24,17 @@ import voluptuous as vol
 
 from .const import (
     DOMAIN,
+    EVENT_NAVIGATE,
     INTENT_ADD_ALARM,
     INTENT_CLEAR_NOTIFICATIONS,
     INTENT_DISABLE_ALARM,
     INTENT_ENABLE_ALARM,
     INTENT_LIST_ALARMS,
     INTENT_MARK_NOTIFICATIONS_READ,
+    INTENT_NAVIGATE,
     INTENT_READ_NOTIFICATIONS,
     INTENT_REMOVE_ALARM,
+    INTENT_WEATHER,
 )
 
 _REGISTERED = f"{DOMAIN}_intents_registered"
@@ -65,6 +68,8 @@ def async_register_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, ReadNotificationsIntent())
     intent.async_register(hass, ClearNotificationsIntent())
     intent.async_register(hass, MarkNotificationsReadIntent())
+    intent.async_register(hass, NavigateIntent())
+    intent.async_register(hass, WeatherIntent())
     hass.data[_REGISTERED] = True
 
 
@@ -222,6 +227,36 @@ _AREA_SLOTS = {
     vol.Optional("area", description="Area/room name to scope to"): cv.string,
     vol.Optional("preferred_area_id"): cv.string,
 }
+
+# Voice "view" tokens → the dashboard-path setting key the frontend resolves.
+_VIEW_TO_DASHBOARD = {
+    "cameras": "cameras_dashboard",
+    "climate": "climate_dashboard",
+    "weather": "weather_dashboard",
+    "music": "music_dashboard",
+    "calendar": "calendar_dashboard",
+    "home": "home_dashboard",
+}
+
+
+def _fire_navigate(
+    hass: HomeAssistant,
+    dashboard_key: str,
+    area: str | None,
+    device_id: str | None,
+) -> bool:
+    """Fire a navigation signal targeting an area and/or a device.
+
+    Returns False (no signal fired) when neither an area nor a device is known,
+    since there'd be no way for a frontend to know the screen is meant for it.
+    """
+    if not area and not device_id:
+        return False
+    hass.bus.async_fire(
+        EVENT_NAVIGATE,
+        {"dashboard": dashboard_key, "area": area, "device_id": device_id},
+    )
+    return True
 
 
 # ── alarm intents ───────────────────────────────────────────
@@ -485,3 +520,73 @@ class MarkNotificationsReadIntent(intent.IntentHandler):
         area_id = None if force_all else _resolve_area(hass, intent_obj)
         await mgr.mark_read(None, area_id)
         return _speech(intent_obj, "Marked your notifications as read.")
+
+
+# ── navigation intents ──────────────────────────────────────
+
+
+def _weather_entity(hass: HomeAssistant) -> str | None:
+    """The configured weather entity (global setting) or the first weather.* entity."""
+    mgr = _manager(hass)
+    if mgr is not None:
+        configured = (mgr.effective_settings() or {}).get("weather_entity")
+        if configured:
+            return str(configured)
+    for state in hass.states.async_all("weather"):
+        return state.entity_id
+    return None
+
+
+class NavigateIntent(intent.IntentHandler):
+    """Navigate the caller's dashboard screen(s) to a Ted's Cards view."""
+
+    intent_type = INTENT_NAVIGATE
+    description = (
+        "Show a Ted's Cards dashboard view (cameras, climate, weather, music, calendar, home)"
+    )
+    slot_schema = {
+        vol.Required("view"): vol.In(sorted(_VIEW_TO_DASHBOARD)),
+        **_AREA_SLOTS,
+    }
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        hass = intent_obj.hass
+        view = _slot(intent_obj, "view")
+        dashboard_key = _VIEW_TO_DASHBOARD.get(str(view))
+        if not dashboard_key:
+            return _speech(intent_obj, "I don't know that view.")
+        area_id = _resolve_area(hass, intent_obj)
+        if not _fire_navigate(hass, dashboard_key, area_id, intent_obj.device_id):
+            return _speech(
+                intent_obj,
+                "I'm not sure which screen to show — try asking from a room device.",
+            )
+        return _speech(intent_obj, f"Showing {view}.")
+
+
+class WeatherIntent(intent.IntentHandler):
+    """Answer the current weather and nudge the screen to the Weather view."""
+
+    intent_type = INTENT_WEATHER
+    description = "Report the current weather and show the Weather view"
+    slot_schema = {**_AREA_SLOTS}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        hass = intent_obj.hass
+        # Nudge the screen to the Weather view when a target can be resolved.
+        _fire_navigate(
+            hass, "weather_dashboard", _resolve_area(hass, intent_obj), intent_obj.device_id
+        )
+
+        entity_id = _weather_entity(hass)
+        if not entity_id:
+            return _speech(intent_obj, "I couldn't find a weather entity.")
+        state = hass.states.get(entity_id)
+        if state is None:
+            return _speech(intent_obj, "Weather is unavailable right now.")
+        condition = (state.state or "unknown").replace("_", " ").replace("-", " ")
+        temp = state.attributes.get("temperature")
+        unit = state.attributes.get("temperature_unit") or ""
+        if temp is not None:
+            return _speech(intent_obj, f"It's currently {condition}, {temp}{unit}.")
+        return _speech(intent_obj, f"It's currently {condition}.")

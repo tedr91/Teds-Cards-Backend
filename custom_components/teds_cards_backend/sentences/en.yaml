@@ -50,6 +50,21 @@ intents:
     data:
       - sentences:
           - "mark [my|the|all] notifications [as] read"
+  TedsNavigate:
+    data:
+      - sentences:
+          - "(show|open|display|view|take me to|go to|switch to|bring up) [the] [{area}] {view}"
+          - "(show|display) me [the] [{area}] {view}"
+          - "{area} {view}"
+  TedsWeather:
+    data:
+      - sentences:
+          - "(what's|what is|how's|hows) the weather [like] [today][ in {area}]"
+          - "(what's|what is|how's|hows) the forecast [today][ in {area}]"
+          - "is it (going to|gonna) rain [today][ in {area}]"
+          - "is it (sunny|raining|snowing|cloudy) [right now][ in {area}]"
+          - "(what's|what is) the (temp|temperature) outside [in {area}]"
+          - "how (hot|cold|warm) is it outside [in {area}]"
 lists:
   hour:
     range:
@@ -103,5 +118,19 @@ lists:
         out: "all"
       - in: "(whole home|whole house|unscoped)"
         out: "all"
+  view:
+    values:
+      - in: "(cameras|camera|cams|cam|security cameras|feeds|feed)"
+        out: "cameras"
+      - in: "(climate|thermostat|thermostats|temperature control|heating|cooling|hvac)"
+        out: "climate"
+      - in: "(weather|forecast)"
+        out: "weather"
+      - in: "(music|songs|media player|now playing)"
+        out: "music"
+      - in: "(calendar|calendars|schedule|agenda)"
+        out: "calendar"
+      - in: "(home|home screen|home page|main screen)"
+        out: "home"
   name:
     wildcard: true

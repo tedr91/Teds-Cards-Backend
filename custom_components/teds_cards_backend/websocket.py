@@ -16,7 +16,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
 
 from .bing_photos import clear_bing_cache, fetch_and_cache_bing, favorite_bing_photo, remove_bing_photo
-from .const import DOMAIN, EVENT_NOTIFICATION, EVENT_SETTINGS
+from .const import DOMAIN, EVENT_NAVIGATE, EVENT_NOTIFICATION, EVENT_SETTINGS
 
 _REGISTERED = f"{DOMAIN}_ws_registered"
 
@@ -38,6 +38,7 @@ def async_register(hass: HomeAssistant) -> None:
         return
     websocket_api.async_register_command(hass, handle_subscribe_notifications)
     websocket_api.async_register_command(hass, handle_subscribe_settings)
+    websocket_api.async_register_command(hass, handle_subscribe_navigate)
     websocket_api.async_register_command(hass, handle_register_device)
     websocket_api.async_register_command(hass, handle_list_backgrounds)
     websocket_api.async_register_command(hass, handle_list_bing_photos)
@@ -87,6 +88,27 @@ def handle_subscribe_settings(
         connection.send_message(
             websocket_api.event_message(msg["id"], mgr.settings_payload())
         )
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/subscribe_navigate"}
+)
+@callback
+def handle_subscribe_navigate(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Forward backend navigation signals to the subscribing connection.
+
+    Each event is ``{dashboard, area, device_id}``; the frontend decides whether
+    it targets this device (by area or device id) and navigates accordingly.
+    """
+
+    @callback
+    def forward(event: Event) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], event.data))
+
+    connection.subscriptions[msg["id"]] = hass.bus.async_listen(EVENT_NAVIGATE, forward)
+    connection.send_result(msg["id"])
 
 
 @websocket_api.websocket_command(

@@ -15,6 +15,7 @@ EVENT_ALARM_RINGING = f"{DOMAIN}_alarm_ringing"
 EVENT_TIMER_FINISHED = f"{DOMAIN}_timer_finished"
 EVENT_NOTIFICATION = f"{DOMAIN}_notification"
 EVENT_SETTINGS = f"{DOMAIN}_settings"
+EVENT_NAVIGATE = f"{DOMAIN}_navigate"
 
 # Custom Assist intent type names (registered in intents.py + sentences/en.yaml).
 INTENT_ADD_ALARM = "TedsAddAlarm"
@@ -25,6 +26,8 @@ INTENT_REMOVE_ALARM = "TedsRemoveAlarm"
 INTENT_READ_NOTIFICATIONS = "TedsReadNotifications"
 INTENT_CLEAR_NOTIFICATIONS = "TedsClearNotifications"
 INTENT_MARK_NOTIFICATIONS_READ = "TedsMarkNotificationsRead"
+INTENT_NAVIGATE = "TedsNavigate"
+INTENT_WEATHER = "TedsWeather"
 
 # Sentinel meaning "use the bundled default sound for this alert kind".
 DEFAULT_SOUND = "default"
@@ -188,6 +191,9 @@ SETTINGS_DEFAULTS = {
     "info_dashboard": "[root]/info",
     "announce_dashboard": "[root]/announce",
     "auto_return_home_after": 0,
+    # When true, a voice-driven climate/music action nudges this device's screen to the
+    # matching view (Climate/Music) via the navigation signal (server-side, area-scoped).
+    "nav_follow_actions": True,
 }
 
 # Only keys present in SETTINGS_DEFAULTS may be written (guards the services/WS).

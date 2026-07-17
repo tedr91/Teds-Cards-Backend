@@ -9,16 +9,17 @@ from datetime import timedelta
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.const import EVENT_CALL_SERVICE, Platform
+from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import Unauthorized
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
 from homeassistant.helpers.start import async_at_started
 from homeassistant.loader import async_get_integration
 
 from .bing_photos import cache_has_images as bing_cache_has_images, fetch_and_cache_bing
-from .const import DOMAIN, MEDIA_FOLDER_NAME
+from .const import DOMAIN, EVENT_NAVIGATE, MEDIA_FOLDER_NAME
 from .intents import async_register_intents
 from .store import TedsManager
 from .websocket import async_register as async_register_ws
@@ -206,8 +207,79 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_track_time_change(hass, _refresh_bing, hour=0, minute=10, second=0)
     )
 
+    _setup_action_nudge(hass, entry, manager)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+# Services that should nudge a device's screen to a Ted's Cards view when fired
+# by voice (or anything else) — mapped to the dashboard-path setting key.
+_NUDGE_SERVICES: dict[tuple[str, str], str] = {
+    ("climate", "set_temperature"): "climate_dashboard",
+    ("climate", "set_hvac_mode"): "climate_dashboard",
+    ("climate", "set_preset_mode"): "climate_dashboard",
+    ("media_player", "play_media"): "music_dashboard",
+    ("media_player", "media_play"): "music_dashboard",
+}
+
+
+def _service_entity_ids(data: dict) -> list[str]:
+    """Extract entity ids from a service call's data (str or list)."""
+    ent = (data or {}).get("entity_id")
+    if not ent:
+        return []
+    return [ent] if isinstance(ent, str) else [e for e in ent if isinstance(e, str)]
+
+
+def _entity_area(hass: HomeAssistant, entity_id: str) -> str | None:
+    """Resolve an entity's area (its own, else its device's)."""
+    entry = er.async_get(hass).async_get(entity_id)
+    if entry is None:
+        return None
+    if entry.area_id:
+        return entry.area_id
+    if entry.device_id:
+        device = dr.async_get(hass).async_get(entry.device_id)
+        if device and device.area_id:
+            return device.area_id
+    return None
+
+
+def _is_music_player(hass: HomeAssistant, entity_id: str) -> bool:
+    """True when the media_player is a Music Assistant player (the Music view's domain)."""
+    entry = er.async_get(hass).async_get(entity_id)
+    return bool(entry and entry.platform == "music_assistant")
+
+
+def _setup_action_nudge(hass: HomeAssistant, entry: ConfigEntry, manager) -> None:
+    """When a climate/music action fires, nudge that area's screens to the matching view.
+
+    Gated by the global `nav_follow_actions` setting. Music nudges are limited to
+    Music Assistant players so TTS/announcements on other players don't trigger them.
+    Only fires when the affected entity's area is known (so a device can target it).
+    """
+
+    @callback
+    def _on_call_service(event: Event) -> None:
+        if manager.effective_settings().get("nav_follow_actions", True) is False:
+            return
+        key = _NUDGE_SERVICES.get((event.data.get("domain"), event.data.get("service")))
+        if not key:
+            return
+        music = key == "music_dashboard"
+        for entity_id in _service_entity_ids(event.data.get("service_data") or {}):
+            if music and not _is_music_player(hass, entity_id):
+                continue
+            area = _entity_area(hass, entity_id)
+            if area:
+                hass.bus.async_fire(
+                    EVENT_NAVIGATE,
+                    {"dashboard": key, "area": area, "device_id": None},
+                )
+                return  # one nudge per call is enough
+
+    entry.async_on_unload(hass.bus.async_listen(EVENT_CALL_SERVICE, _on_call_service))
 
 
 async def _install_sentences(hass: HomeAssistant) -> None:
