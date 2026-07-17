@@ -259,11 +259,27 @@ class AddAlarmIntent(intent.IntentHandler):
         hhmm = _to_24h(hour, _slot(intent_obj, "minute") or 0, _slot(intent_obj, "meridiem"))
         days = _days_from_set(_slot(intent_obj, "dayset"))
         whole_home = _slot(intent_obj, "scope") == "all"
-        area_id = None if whole_home else _resolve_area(hass, intent_obj)
+        if whole_home:
+            area_id = None
+        else:
+            area_id = _resolve_area(hass, intent_obj)
+            if area_id is None:
+                # No room could be determined (e.g. the browser Assist dialog
+                # sends no device/area). Ask rather than silently going house-wide.
+                return _speech(
+                    intent_obj,
+                    "Which room is this alarm for? Say the room name, "
+                    "or say 'whole home' for a house-wide alarm.",
+                )
         label = _slot(intent_obj, "name") or f"{_spoken_time(hhmm)} alarm"
 
         await mgr.add_alarm(str(label), hhmm, days, location=area_id)
-        where = " for the whole home" if whole_home else ""
+        if whole_home:
+            where = " for the whole home"
+        elif area_id and (area := ar.async_get(hass).async_get_area(area_id)):
+            where = f" in {area.name}"
+        else:
+            where = ""
         return _speech(
             intent_obj,
             f"Alarm set for {_spoken_time(hhmm)} {_spoken_days(days)}{where}.",
