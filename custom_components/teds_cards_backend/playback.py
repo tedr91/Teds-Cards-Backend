@@ -154,6 +154,9 @@ class PlaybackEngine:
     # ── announcements (spoken TTS + optional repeating chime) ────────────────
     # Spoken preface played between the two incoming-signal chimes.
     _INCOMING_PHRASE = "Announcement incoming"
+    # On announce-capable players, start the next clip this many seconds before the
+    # chime's nominal end so its TTS synthesis overlaps the chime tail (no dead gap).
+    _CHIME_TTS_LEAD = 0.5
 
     def announce(self, message, notif_id, areas=None, devices=None,
                  persistent=False, repeat_sound=False, timeout=None, volume=None) -> None:
@@ -232,21 +235,28 @@ class PlaybackEngine:
         intro_media = self._tts_media_id(self._INCOMING_PHRASE, engine)
         message_media = self._tts_media_id(message, engine)
 
+        # Announce-capable players QUEUE their announcements, so we can fire the next
+        # clip before the chime fully ends (its TTS synthesis then overlaps the chime
+        # tail instead of adding a gap after it). Non-announce players interrupt, so
+        # they must wait the whole chime.
+        all_announce = bool(plays) and all(p["announce"] for p in plays)
+        chime_gap = max(0.15, chime_len - self._CHIME_TTS_LEAD) if all_announce else chime_len
+
         # 1) incoming-signal chime
         await self._play_chime_all(plays, chime, volume)
-        await asyncio.sleep(chime_len)
+        await asyncio.sleep(chime_gap)
         # 2) "Announcement incoming"
         if _live() and intro_media is not None:
             await self._speak_all(plays, intro_media, volume)
-            await asyncio.sleep(self._estimate_speech(self._INCOMING_PHRASE) + 0.5)
+            await asyncio.sleep(self._estimate_speech(self._INCOMING_PHRASE))
         # 3) chime again
         if _live():
             await self._play_chime_all(plays, chime, volume)
-            await asyncio.sleep(chime_len)
+            await asyncio.sleep(chime_gap)
         # 4) the announcement text
         if _live() and message_media is not None:
             await self._speak_all(plays, message_media, volume)
-            await asyncio.sleep(self._estimate_speech(message) + 0.5)
+            await asyncio.sleep(self._estimate_speech(message))
         if not _live():
             return
 
@@ -328,9 +338,9 @@ class PlaybackEngine:
 
     @staticmethod
     def _estimate_speech(message) -> float:
-        """Rough spoken length (seconds) of `message` — ~0.45s/word, clamped 3-30s."""
+        """Rough spoken length (seconds) of `message` — ~0.4s/word, clamped 1.2-20s."""
         words = len((message or "").split())
-        return min(30.0, max(3.0, words * 0.45 + 1.0))
+        return min(20.0, max(1.2, words * 0.4 + 0.5))
 
     def _inspect(self, mp):
         """Return (announce_supported, snapshot) for a media player.

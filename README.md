@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.65
+
+- **Snappier announcement sequence.** Trimmed the dead gap between the alert chime and the spoken steps: on announce-capable speakers the next clip now starts as the chime tail plays (its speech synthesis overlaps the chime instead of adding a pause), and the per-step timing estimates are tighter.
+
 ### v1.0.64
 
 - **Announcements now chime, preface, then speak.** Each received announcement plays an ordered sequence on the target speaker: alert chime → “Announcement incoming” → alert chime → the message → the alert chime once more (or on repeat until dismissed for a persistent announcement). Dismissing mid-sequence stops it.
