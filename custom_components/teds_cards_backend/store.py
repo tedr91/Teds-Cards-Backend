@@ -473,7 +473,7 @@ class TedsManager:
 
     def _record_recent_announcement(self, message, title, icon, areas, devices,
                                     persistent, timeout, source_device=None):
-        """Add/refresh a preset in the global Recent announcements list (dedupe + cap)."""
+        """Add/refresh a preset in the Recent announcements list (per-device dedupe + cap)."""
         entry = {
             "id": uuid.uuid4().hex,
             "message": message,
@@ -494,12 +494,20 @@ class TedsManager:
             return (r.get("message") == message
                     and r.get("areas") == areas
                     and r.get("devices") == devices
-                    and bool(r.get("persistent")) == bool(persistent))
+                    and bool(r.get("persistent")) == bool(persistent)
+                    and r.get("source_device") == source_device)
 
-        self.recent_announcements = [entry] + [
-            r for r in self.recent_announcements if not _same(r)
-        ]
-        del self.recent_announcements[RECENT_ANNOUNCEMENTS_MAX:]
+        merged = [entry] + [r for r in self.recent_announcements if not _same(r)]
+        # Recent is PER-DEVICE: cap each sending device's history independently so a
+        # busy device can't evict another device's recent announcements.
+        counts: dict = {}
+        kept = []
+        for r in merged:
+            key = r.get("source_device")
+            counts[key] = counts.get(key, 0) + 1
+            if counts[key] <= RECENT_ANNOUNCEMENTS_MAX:
+                kept.append(r)
+        self.recent_announcements = kept
 
     async def remove_recent_announcement(self, rid):
         """Drop an entry from the Recent announcements list."""

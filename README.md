@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.76
+
+- **Recent announcements are now per-device.** Each sending device keeps its own recent-announcement history (deduped and capped independently), so a busy device no longer evicts another device's recents. Pairs with Ted's Cards v1.0.302+.
+
 ### v1.0.75
 
 - **Bundled sounds are now listable.** A new `list_sounds` WebSocket endpoint reports the built-in alert sounds (with friendly names + categories), powering the new sound-picker dropdown + preview in Ted's Cards Settings. Pairs with Ted's Cards v1.0.301+.
