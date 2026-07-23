@@ -416,7 +416,6 @@ class TedsManager:
         # A primary area (first selected, else None = house-wide) keeps area_name/
         # notification-center filtering meaningful; announce_targets scopes the toast.
         primary_area = areas[0] if areas else None
-        actions = [{"label": "Dismiss", "action": "dismiss"}] if persistent else None
         targets = {"areas": areas, "devices": devices}
         if source_device:
             targets["source_device"] = source_device
@@ -426,7 +425,9 @@ class TedsManager:
         # 1) Prepare the audio first: resolve the target speaker(s) and pre-generate +
         # measure both spoken clips (this warms HA's TTS cache), so nothing is shown or
         # played until it's fully ready and exactly timed.
-        prep = await self.playback.prepare_announcement(message, areas, devices, volume)
+        prep = await self.playback.prepare_announcement(
+            message, areas, devices, volume, persistent=persistent
+        )
         # 2) Now show the on-screen message (in sync with the audio starting).
         self._add_notification(
             title=title,
@@ -434,7 +435,7 @@ class TedsManager:
             severity="info",
             icon=icon or "mdi:bullhorn",
             area=primary_area,
-            actions=actions,
+            actions=None,
             notif_id=nid,
             # The timeout caps BOTH the on-screen message and the repeating alert sound
             # (0 = stay until manually dismissed). Same for both modes.
@@ -444,9 +445,9 @@ class TedsManager:
             announce_targets=targets,
             play_sound=False,
         )
-        # 3) Play the prepared sequence (chime → "Announcement incoming" → chime →
-        # message → alert; loops the chime until dismissed when persistent). No-op
-        # when there's no speaker to target.
+        # 3) Play the prepared sequence (chime → "Announcement incoming" → pause →
+        # message → chime; "until dismissed" loops that closing chime until dismissed).
+        # No-op when there's no speaker to target.
         self.playback.start_prepared(
             prep, nid, persistent=persistent, timeout=timeout,
         )

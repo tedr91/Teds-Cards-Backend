@@ -163,13 +163,18 @@ class PlaybackEngine:
     # Pause between the "Announcement incoming" preface and the message body.
     _MSG_GAP = 0.5
 
-    async def prepare_announcement(self, message, areas=None, devices=None, volume=None):
+    async def prepare_announcement(self, message, areas=None, devices=None, volume=None,
+                                   persistent=False):
         """Resolve targets + engine and PRE-GENERATE + measure both spoken clips.
 
         Generating the TTS up front warms Home Assistant's server-side TTS cache and
         yields each clip's exact length, so the sequence later plays back-to-back with
         no synthesis pause and no under/over-run. Returns a prep dict, or None when
         there's no speaker to target (the caller still shows the on-screen message).
+
+        `persistent` ("until dismissed") builds the stitched clip WITHOUT a trailing
+        chime, so the repeating alert loop starts immediately at the message's end
+        with no gap; "play once" bakes the finishing chime into the clip.
         """
         targets = self._announce_targets(areas, devices)
         if not targets:
@@ -186,7 +191,10 @@ class PlaybackEngine:
         plays = [{"mp": mp, "announce": self._inspect(mp)[0]} for _eff, mp in targets]
         # Stitch the whole sequence into ONE clip so the target device's per-play
         # startup latency is paid once (falls back to separate clips if this fails).
-        combined_url = await self._build_combined(chime, message, engine, intro_media, message_media)
+        # "Until dismissed" omits the trailing chime; its repeating loop provides it.
+        combined_url = await self._build_combined(
+            chime, message, engine, intro_media, message_media, trailing=not persistent
+        )
         return {
             "plays": plays, "chime": chime, "chime_len": chime_len,
             "intro_media": intro_media, "message_media": message_media,
@@ -272,8 +280,9 @@ class PlaybackEngine:
             await self._play_media_all(plays, combined_url, vol)
             self._dlog("combined play issued in %.2fs" % (self.hass.loop.time() - t))
             if _live() and loop_chime and notif_id:
-                # Loop the alert chime after the stitched clip finishes.
-                total = chime_len * 2 + intro_dur + self._MSG_GAP + message_dur
+                # The stitched clip ends at the message (no trailing chime); start the
+                # repeating alert chime right at its end so the loop is seamless.
+                total = chime_len + intro_dur + self._MSG_GAP + message_dur
                 entry = self._active.get(notif_id)
                 if entry is not None:
                     for p in plays:
@@ -304,7 +313,7 @@ class PlaybackEngine:
         if loop_chime and notif_id and entry is not None:
             for p in plays:
                 entry["loops"].append(
-                    self._schedule_announce_chime(notif_id, p, chime, chime_len, chime_len, vol)
+                    self._schedule_announce_chime(notif_id, p, chime, chime_len, 0, vol)
                 )
         else:
             await self._play_chime_all(plays, chime, vol)
@@ -336,18 +345,23 @@ class PlaybackEngine:
         except NoURLAvailableError:
             return path
 
-    async def _build_combined(self, chime, message, engine, intro_media, message_media):
-        """Stitch ding+intro+pause+message+ding into ONE cached mp3; return its URL.
+    async def _build_combined(self, chime, message, engine, intro_media, message_media,
+                              trailing=True):
+        """Stitch ding+intro+pause+message(+ding) into ONE cached mp3; return its URL.
 
-        Returns None (so the caller falls back to separate clips) when the cache dir,
-        TTS, or ffmpeg isn't available. Cached by (engine, chime, message) so repeat
-        sends of the same announcement reuse the file with no re-encoding.
+        With `trailing` the clip ends on a finishing chime ("play once"); without it
+        the clip ends at the message so a repeating alert loop can take over seamlessly
+        ("until dismissed"). Returns None (so the caller falls back to separate clips)
+        when the cache dir, TTS, or ffmpeg isn't available. Cached by
+        (engine, chime, message, trailing) so repeat sends reuse the file.
         """
         cache_dir = self._m.announce_cache_dir
         if not cache_dir or intro_media is None or message_media is None:
             return None
         try:
-            key = hashlib.sha1(f"{engine or ''}|{chime}|{message}".encode("utf-8")).hexdigest()
+            key = hashlib.sha1(
+                f"{engine or ''}|{chime}|{message}|{int(trailing)}".encode("utf-8")
+            ).hexdigest()
             out_name = f"{key}.mp3"
             out_path = os.path.join(cache_dir, out_name)
             url = self._combined_url(out_name)
@@ -360,7 +374,9 @@ class PlaybackEngine:
             _me, msg_bytes = await tts.async_get_media_source_audio(self.hass, message_media)
             if not (chime_bytes and intro_bytes and msg_bytes):
                 return None
-            ok = await self._concat_to(cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes)
+            ok = await self._concat_to(
+                cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes, trailing
+            )
             return url if ok else None
         except Exception as ex:  # noqa: BLE001 - stitching is best-effort
             _LOGGER.debug("Ted's Cards announce: combine failed: %s", ex)
@@ -396,8 +412,9 @@ class PlaybackEngine:
         except Exception:  # noqa: BLE001
             return None
 
-    async def _concat_to(self, cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes) -> bool:
-        """ffmpeg-concat [chime, intro, 0.5s silence, message, chime] → out_path (mp3)."""
+    async def _concat_to(self, cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes,
+                         trailing=True) -> bool:
+        """ffmpeg-concat [chime, intro, 0.5s silence, message(, chime)] → out_path (mp3)."""
         stem = uuid.uuid4().hex
         c_path = os.path.join(cache_dir, f"{stem}_c.mp3")
         i_path = os.path.join(cache_dir, f"{stem}_i.mp3")
@@ -421,13 +438,16 @@ class PlaybackEngine:
 
             binary = ffmpeg.get_ffmpeg_manager(self.hass).binary
             # Input 3 is a synthesized silence used as the pause between the preface
-            # and the message. Sequence: chime, intro, silence, message, chime.
+            # and the message. Sequence: chime, intro, silence, message[, chime].
+            if trailing:
+                chain = "[0:a][1:a][3:a][2:a][0:a]concat=n=5:v=0:a=1[out]"
+            else:
+                chain = "[0:a][1:a][3:a][2:a]concat=n=4:v=0:a=1[out]"
             cmd = [
                 binary, "-y",
                 "-i", c_path, "-i", i_path, "-i", m_path,
                 "-f", "lavfi", "-t", f"{self._MSG_GAP}", "-i", "anullsrc=r=44100:cl=stereo",
-                "-filter_complex",
-                "[0:a][1:a][3:a][2:a][0:a]concat=n=5:v=0:a=1[out]",
+                "-filter_complex", chain,
                 "-map", "[out]", "-ac", "2", "-ar", "44100", out_path,
             ]
             proc = await asyncio.create_subprocess_exec(
