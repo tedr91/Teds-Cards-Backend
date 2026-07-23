@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.70
+
+- **Announcement playback drops the middle chime.** The spoken sequence is now **chime → “Announcement incoming” → 0.5s pause → message → chime** (previously there was an extra chime between the preface and the message). The pause makes the message easier to catch. Existing cached clips regenerate automatically when a message changes.
+
 ### v1.0.69
 
 - **Recent announcements remember the sender.** Each recent announcement now records the device that sent it, so the Announce card can show “from &lt;device&gt;” and offer a reply. Pairs with Ted's Cards v1.0.297+.
