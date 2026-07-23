@@ -421,6 +421,11 @@ class TedsManager:
             targets["source_device_name"] = (
                 self.device_registry.get(source_device, {}).get("name")
             )
+        # 1) Prepare the audio first: resolve the target speaker(s) and pre-generate +
+        # measure both spoken clips (this warms HA's TTS cache), so nothing is shown or
+        # played until it's fully ready and exactly timed.
+        prep = await self.playback.prepare_announcement(message, areas, devices, volume)
+        # 2) Now show the on-screen message (in sync with the audio starting).
         self._add_notification(
             title=title,
             message=message,
@@ -436,11 +441,10 @@ class TedsManager:
             announce_targets=targets,
             play_sound=False,
         )
-        # Speak now (and, for persistent + repeat_sound, loop a chime until dismissed).
-        self.playback.announce(
-            message, nid, areas=areas, devices=devices,
-            persistent=persistent, repeat_sound=repeat_sound,
-            timeout=timeout, volume=volume,
+        # 3) Play the prepared sequence (chime → "Announcement incoming" → chime →
+        # message → alert once/repeat); no-op when there's no speaker to target.
+        self.playback.start_prepared(
+            prep, nid, persistent=persistent, repeat_sound=repeat_sound, timeout=timeout,
         )
         self._record_recent_announcement(
             message, title, icon, areas, devices, persistent, repeat_sound, timeout,

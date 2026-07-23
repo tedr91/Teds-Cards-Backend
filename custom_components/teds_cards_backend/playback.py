@@ -159,25 +159,39 @@ class PlaybackEngine:
     # Small gap inserted between clips so they don't butt right against each other.
     _STEP_GAP = 0.2
 
-    def announce(self, message, notif_id, areas=None, devices=None,
-                 persistent=False, repeat_sound=False, timeout=None, volume=None) -> None:
-        """Speak `message` on the targeted areas/devices; loop a chime if persistent+repeat."""
+    async def prepare_announcement(self, message, areas=None, devices=None, volume=None):
+        """Resolve targets + engine and PRE-GENERATE + measure both spoken clips.
+
+        Generating the TTS up front warms Home Assistant's server-side TTS cache and
+        yields each clip's exact length, so the sequence later plays back-to-back with
+        no synthesis pause and no under/over-run. Returns a prep dict, or None when
+        there's no speaker to target (the caller still shows the on-screen message).
+        """
         targets = self._announce_targets(areas, devices)
         if not targets:
-            return
+            return None
         eff0 = targets[0][0]
         vol = volume if volume is not None else eff0.get("announce_volume", 80)
         engine = eff0.get("announce_tts_engine") or None
         chime = self._sound_url(eff0.get("announce_sound"), "notification")
-        plays = []
-        for _eff, mp in targets:
-            announce_cap, _snap = self._inspect(mp)
-            plays.append({"mp": mp, "announce": announce_cap})
+        chime_len = await self._sound_duration(chime)
+        intro_media = self._tts_media_id(self._INCOMING_PHRASE, engine)
+        message_media = self._tts_media_id(message, engine)
+        intro_dur = (await self._tts_duration(self._INCOMING_PHRASE, engine)) if intro_media is not None else 0.0
+        message_dur = (await self._tts_duration(message, engine)) if message_media is not None else 0.0
+        plays = [{"mp": mp, "announce": self._inspect(mp)[0]} for _eff, mp in targets]
+        return {
+            "plays": plays, "chime": chime, "chime_len": chime_len,
+            "intro_media": intro_media, "message_media": message_media,
+            "intro_dur": intro_dur, "message_dur": message_dur, "vol": vol,
+        }
+
+    def start_prepared(self, prep, notif_id, persistent=False, repeat_sound=False, timeout=None) -> None:
+        """Kick off a prepared announcement sequence (no-op when there's no target)."""
+        if not prep:
+            return
         loop_chime = bool(persistent and repeat_sound)
-        self.hass.async_create_task(
-            self._run_announcement(message, engine, plays, notif_id, chime,
-                                   loop_chime, timeout, vol)
-        )
+        self.hass.async_create_task(self._run_prepared(prep, notif_id, loop_chime, timeout))
 
     def _announce_targets(self, areas, devices):
         """(effective_settings, player) for each distinct player targeted by an announcement.
@@ -210,9 +224,8 @@ class PlaybackEngine:
                 out.append((eff, mp))
         return out
 
-    async def _run_announcement(self, message, engine, plays, notif_id, chime,
-                                loop_chime, timeout, volume) -> None:
-        """Play the announcement sequence on each target, in order:
+    async def _run_prepared(self, prep, notif_id, loop_chime, timeout) -> None:
+        """Play the prepared announcement sequence, in order:
 
             1. alert chime once (incoming signal)
             2. TTS "Announcement incoming"
@@ -220,8 +233,9 @@ class PlaybackEngine:
             4. TTS the announcement text
             5. alert chime — once, or repeating until dismissed (persistent + repeat)
 
-        Steps are spaced by each clip's (estimated) length so they play sequentially.
-        A placeholder entry is registered up front so a dismiss mid-sequence aborts it.
+        All TTS was generated + measured in `prepare_announcement`, so each step is
+        spaced by its clip's EXACT length and plays without a synthesis pause. A
+        placeholder entry is registered up front so a dismiss mid-sequence aborts it.
         """
         if notif_id:
             old = self._active.pop(notif_id, None)
@@ -232,31 +246,30 @@ class PlaybackEngine:
         def _live() -> bool:
             return notif_id is None or notif_id in self._active
 
-        chime_len = await self._sound_duration(chime)
-        intro_media = self._tts_media_id(self._INCOMING_PHRASE, engine)
-        message_media = self._tts_media_id(message, engine)
+        plays = prep["plays"]
+        chime = prep["chime"]
+        chime_len = prep["chime_len"]
+        intro_media = prep["intro_media"]
+        message_media = prep["message_media"]
+        intro_dur = prep["intro_dur"]
+        message_dur = prep["message_dur"]
+        vol = prep["vol"]
         gap = self._STEP_GAP
 
-        # 1) incoming-signal chime — fire it now, then pre-generate + measure the TTS
-        # clips WHILE it plays (which also warms HA's TTS cache so the speech starts
-        # instantly rather than pausing to synthesize). We only wait out whatever is
-        # left of the chime after that generation.
-        started = self.hass.loop.time()
-        await self._play_chime_all(plays, chime, volume)
-        intro_dur = (await self._tts_duration(self._INCOMING_PHRASE, engine)) if intro_media is not None else 0.0
-        message_dur = (await self._tts_duration(message, engine)) if message_media is not None else 0.0
-        await self._sleep_remaining(started, chime_len + gap)
+        # 1) incoming-signal chime
+        await self._play_chime_all(plays, chime, vol)
+        await asyncio.sleep(chime_len + gap)
         # 2) "Announcement incoming"
         if _live() and intro_media is not None:
-            await self._speak_all(plays, intro_media, volume)
+            await self._speak_all(plays, intro_media, vol)
             await asyncio.sleep(intro_dur + gap)
         # 3) chime again
         if _live():
-            await self._play_chime_all(plays, chime, volume)
+            await self._play_chime_all(plays, chime, vol)
             await asyncio.sleep(chime_len + gap)
         # 4) the announcement text
         if _live() and message_media is not None:
-            await self._speak_all(plays, message_media, volume)
+            await self._speak_all(plays, message_media, vol)
             await asyncio.sleep(message_dur + gap)
         if not _live():
             return
@@ -266,10 +279,10 @@ class PlaybackEngine:
         if loop_chime and notif_id and entry is not None:
             for p in plays:
                 entry["loops"].append(
-                    self._schedule_announce_chime(notif_id, p, chime, chime_len, chime_len, volume)
+                    self._schedule_announce_chime(notif_id, p, chime, chime_len, chime_len, vol)
                 )
         else:
-            await self._play_chime_all(plays, chime, volume)
+            await self._play_chime_all(plays, chime, vol)
             if notif_id:
                 self._active.pop(notif_id, None)
 
@@ -345,12 +358,6 @@ class PlaybackEngine:
         """
         words = len((message or "").split())
         return min(30.0, max(3.0, words * 0.45 + 1.0))
-
-    async def _sleep_remaining(self, started, target) -> None:
-        """Sleep so the total elapsed since `started` (loop time) reaches `target`s."""
-        remaining = target - (self.hass.loop.time() - started)
-        if remaining > 0:
-            await asyncio.sleep(remaining)
 
     async def _tts_duration(self, message, engine) -> float:
         """Exact spoken length (seconds) of `message`.

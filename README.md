@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.67
+
+- **Announcement prep-then-show.** An incoming announcement now fully prepares its audio first — the "Announcement incoming" preface and the message are generated and measured up front (server-side) — and only then does the on-screen message appear and the sequence play. This keeps the visual and audio in sync and removes the last of the timing glitches; brand-new messages have a brief one-time prep before they show (repeats are instant).
+
 ### v1.0.66
 
 - **Announcement timing now uses real audio lengths.** Reverted the v1.0.65 estimate tweak (which could cut the spoken message off) and instead measures the *actual* length of each spoken clip — the TTS audio is generated and measured up front (during the opening chime), which also warms Home Assistant's TTS cache so speech starts without a synthesis pause. No more cut-offs or dead gaps between the chime and the message.
