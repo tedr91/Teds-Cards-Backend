@@ -86,7 +86,6 @@ announce:
     areas: { selector: { area: { multiple: true } } }
     devices: { selector: { object: {} } }
     persistent: { selector: { boolean: {} } }
-    repeat_sound: { selector: { boolean: {} } }
     timeout: { selector: { number: { min: 0, max: 600, unit_of_measurement: "s" } } }
     volume: { selector: { number: { min: 0, max: 100, unit_of_measurement: "%" } } }
     source_device: { selector: { text: {} } }

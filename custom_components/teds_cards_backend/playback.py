@@ -23,9 +23,11 @@ state so nothing is left in a weird state.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import logging
 import os
+import uuid
 
 from homeassistant.core import callback
 from homeassistant.helpers.event import async_call_later
@@ -180,18 +182,25 @@ class PlaybackEngine:
         intro_dur = (await self._tts_duration(self._INCOMING_PHRASE, engine)) if intro_media is not None else 0.0
         message_dur = (await self._tts_duration(message, engine)) if message_media is not None else 0.0
         plays = [{"mp": mp, "announce": self._inspect(mp)[0]} for _eff, mp in targets]
+        # Stitch the whole sequence into ONE clip so the target device's per-play
+        # startup latency is paid once (falls back to separate clips if this fails).
+        combined_url = await self._build_combined(chime, message, engine, intro_media, message_media)
         return {
             "plays": plays, "chime": chime, "chime_len": chime_len,
             "intro_media": intro_media, "message_media": message_media,
             "intro_dur": intro_dur, "message_dur": message_dur, "vol": vol,
+            "combined_url": combined_url,
         }
 
-    def start_prepared(self, prep, notif_id, persistent=False, repeat_sound=False, timeout=None) -> None:
-        """Kick off a prepared announcement sequence (no-op when there's no target)."""
+    def start_prepared(self, prep, notif_id, persistent=False, timeout=None) -> None:
+        """Kick off a prepared announcement sequence (no-op when there's no target).
+
+        Persistent ("until dismissed") announcements loop the alert chime after the
+        stitched clip until they're dismissed.
+        """
         if not prep:
             return
-        loop_chime = bool(persistent and repeat_sound)
-        self.hass.async_create_task(self._run_prepared(prep, notif_id, loop_chime, timeout))
+        self.hass.async_create_task(self._run_prepared(prep, notif_id, bool(persistent), timeout))
 
     def _announce_targets(self, areas, devices):
         """(effective_settings, player) for each distinct player targeted by an announcement.
@@ -225,17 +234,13 @@ class PlaybackEngine:
         return out
 
     async def _run_prepared(self, prep, notif_id, loop_chime, timeout) -> None:
-        """Play the prepared announcement sequence, in order:
+        """Play the prepared announcement.
 
-            1. alert chime once (incoming signal)
-            2. TTS "Announcement incoming"
-            3. alert chime once again
-            4. TTS the announcement text
-            5. alert chime — once, or repeating until dismissed (persistent + repeat)
-
-        All TTS was generated + measured in `prepare_announcement`, so each step is
-        spaced by its clip's EXACT length and plays without a synthesis pause. A
-        placeholder entry is registered up front so a dismiss mid-sequence aborts it.
+        Preferred path: ONE stitched clip (ding → "Announcement incoming" → ding →
+        message → ding) played with a single call, so a high-latency device pays its
+        per-play startup cost once and the sequence has no internal gaps. If stitching
+        wasn't available, falls back to playing the clips as a spaced sequence.
+        A placeholder entry is registered up front so a dismiss mid-sequence aborts it.
         """
         if notif_id:
             old = self._active.pop(notif_id, None)
@@ -249,27 +254,49 @@ class PlaybackEngine:
         plays = prep["plays"]
         chime = prep["chime"]
         chime_len = prep["chime_len"]
-        intro_media = prep["intro_media"]
-        message_media = prep["message_media"]
         intro_dur = prep["intro_dur"]
         message_dur = prep["message_dur"]
         vol = prep["vol"]
+        combined_url = prep.get("combined_url")
         gap = self._STEP_GAP
+        self._dlog(
+            "start nid=%s combined=%s chime=%.2f intro=%.2f msg=%.2f targets=%d"
+            % (notif_id, bool(combined_url), chime_len, intro_dur, message_dur, len(plays))
+        )
 
+        # Preferred: a single stitched clip.
+        if combined_url:
+            t = self.hass.loop.time()
+            await self._play_media_all(plays, combined_url, vol)
+            self._dlog("combined play issued in %.2fs" % (self.hass.loop.time() - t))
+            if _live() and loop_chime and notif_id:
+                # Loop the alert chime after the stitched clip finishes.
+                total = chime_len * 3 + intro_dur + message_dur + gap
+                entry = self._active.get(notif_id)
+                if entry is not None:
+                    for p in plays:
+                        entry["loops"].append(
+                            self._schedule_announce_chime(notif_id, p, chime, chime_len, total, vol)
+                        )
+            elif notif_id:
+                self._active.pop(notif_id, None)
+            return
+
+        # Fallback: spaced sequence (each clip is a separate play).
         # 1) incoming-signal chime
         await self._play_chime_all(plays, chime, vol)
         await asyncio.sleep(chime_len + gap)
         # 2) "Announcement incoming"
-        if _live() and intro_media is not None:
-            await self._speak_all(plays, intro_media, vol)
+        if _live() and prep["intro_media"] is not None:
+            await self._speak_all(plays, prep["intro_media"], vol)
             await asyncio.sleep(intro_dur + gap)
         # 3) chime again
         if _live():
             await self._play_chime_all(plays, chime, vol)
             await asyncio.sleep(chime_len + gap)
         # 4) the announcement text
-        if _live() and message_media is not None:
-            await self._speak_all(plays, message_media, vol)
+        if _live() and prep["message_media"] is not None:
+            await self._speak_all(plays, prep["message_media"], vol)
             await asyncio.sleep(message_dur + gap)
         if not _live():
             return
@@ -285,6 +312,138 @@ class PlaybackEngine:
             await self._play_chime_all(plays, chime, vol)
             if notif_id:
                 self._active.pop(notif_id, None)
+
+    async def _play_media_all(self, plays, url, volume) -> None:
+        """Play one media URL on every target (announce-ducked when supported)."""
+        for p in plays:
+            if p["announce"]:
+                await self._announce(p["mp"], url, volume)
+            else:
+                await self._play_once(p["mp"], url, volume)
+
+    def _dlog(self, msg) -> None:
+        """Announcement timing diagnostics (INFO when Debug mode is on, else DEBUG)."""
+        try:
+            debug = bool(self._m.effective_settings(None).get("debug_mode"))
+        except Exception:  # noqa: BLE001
+            debug = False
+        (_LOGGER.info if debug else _LOGGER.debug)("[announce] %s", msg)
+
+    # --- combined-clip stitching (ffmpeg) ----------------------------------
+    def _combined_url(self, name) -> str:
+        """Absolute (preferred) or relative URL for a stitched clip filename."""
+        path = f"/teds_cards_backend/announce_cache/{name}"
+        try:
+            return f"{get_url(self.hass)}{path}"
+        except NoURLAvailableError:
+            return path
+
+    async def _build_combined(self, chime, message, engine, intro_media, message_media):
+        """Stitch ding+intro+ding+message+ding into ONE cached mp3; return its URL.
+
+        Returns None (so the caller falls back to separate clips) when the cache dir,
+        TTS, or ffmpeg isn't available. Cached by (engine, chime, message) so repeat
+        sends of the same announcement reuse the file with no re-encoding.
+        """
+        cache_dir = self._m.announce_cache_dir
+        if not cache_dir or intro_media is None or message_media is None:
+            return None
+        try:
+            key = hashlib.sha1(f"{engine or ''}|{chime}|{message}".encode("utf-8")).hexdigest()
+            out_name = f"{key}.mp3"
+            out_path = os.path.join(cache_dir, out_name)
+            url = self._combined_url(out_name)
+            if await self.hass.async_add_executor_job(os.path.exists, out_path):
+                return url
+            from homeassistant.components import tts  # noqa: PLC0415
+
+            chime_bytes = await self._audio_bytes(chime)
+            _ie, intro_bytes = await tts.async_get_media_source_audio(self.hass, intro_media)
+            _me, msg_bytes = await tts.async_get_media_source_audio(self.hass, message_media)
+            if not (chime_bytes and intro_bytes and msg_bytes):
+                return None
+            ok = await self._concat_to(cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes)
+            return url if ok else None
+        except Exception as ex:  # noqa: BLE001 - stitching is best-effort
+            _LOGGER.debug("Ted's Cards announce: combine failed: %s", ex)
+            return None
+
+    async def _audio_bytes(self, url):
+        """Bytes of a sound URL (bundled file from disk, else HTTP fetch)."""
+        if url.startswith(SOUNDS_URL_PREFIX):
+            path = os.path.join(self._sounds_dir, os.path.basename(url))
+            return await self.hass.async_add_executor_job(self._read_file, path)
+        return await self.hass.async_add_executor_job(self._fetch_bytes, url)
+
+    @staticmethod
+    def _read_file(path):
+        try:
+            with open(path, "rb") as fh:
+                return fh.read()
+        except OSError:
+            return None
+
+    def _fetch_bytes(self, url):
+        try:
+            import requests  # noqa: PLC0415
+
+            fetch = url
+            if url.startswith("/"):
+                try:
+                    fetch = f"{get_url(self.hass)}{url}"
+                except NoURLAvailableError:
+                    return None
+            resp = requests.get(fetch, timeout=10)
+            return resp.content if resp.ok else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    async def _concat_to(self, cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes) -> bool:
+        """ffmpeg-concat [chime, intro, chime, message, chime] → out_path (mp3)."""
+        stem = uuid.uuid4().hex
+        c_path = os.path.join(cache_dir, f"{stem}_c.mp3")
+        i_path = os.path.join(cache_dir, f"{stem}_i.mp3")
+        m_path = os.path.join(cache_dir, f"{stem}_m.mp3")
+
+        def _write():
+            for p, b in ((c_path, chime_bytes), (i_path, intro_bytes), (m_path, msg_bytes)):
+                with open(p, "wb") as fh:
+                    fh.write(b)
+
+        def _cleanup():
+            for p in (c_path, i_path, m_path):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+
+        try:
+            await self.hass.async_add_executor_job(_write)
+            from homeassistant.components import ffmpeg  # noqa: PLC0415
+
+            binary = ffmpeg.get_ffmpeg_manager(self.hass).binary
+            cmd = [
+                binary, "-y",
+                "-i", c_path, "-i", i_path, "-i", m_path,
+                "-filter_complex",
+                "[0:a][1:a][0:a][2:a][0:a]concat=n=5:v=0:a=1[out]",
+                "-map", "[out]", "-ac", "2", "-ar", "44100", out_path,
+            ]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _out, err = await proc.communicate()
+            if proc.returncode != 0:
+                _LOGGER.debug(
+                    "Ted's Cards announce: ffmpeg concat failed: %s",
+                    (err or b"").decode(errors="ignore")[:300],
+                )
+                return False
+            return await self.hass.async_add_executor_job(os.path.exists, out_path)
+        finally:
+            await self.hass.async_add_executor_job(_cleanup)
 
     async def _play_chime_all(self, plays, chime, volume) -> None:
         """Play the alert chime once on every target player."""

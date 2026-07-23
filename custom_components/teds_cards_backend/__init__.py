@@ -41,6 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _install_sentences(hass)
     await _register_sound_path(hass)
     await _register_background_path(hass)
+    manager.announce_cache_dir = await _register_announce_cache_path(hass)
     manager.media_folder = await _ensure_media_folder(hass)
 
     async def add_alarm(call: ServiceCall):
@@ -91,7 +92,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data["message"], title=call.data.get("title", "Announcement"),
             icon=call.data.get("icon"), areas=call.data.get("areas"),
             devices=call.data.get("devices"), persistent=call.data.get("persistent", False),
-            repeat_sound=call.data.get("repeat_sound", False),
             timeout=call.data.get("timeout"), volume=call.data.get("volume"),
             source_device=call.data.get("source_device"),
         )
@@ -184,7 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         vol.Required("message"): cv.string, vol.Optional("title"): cv.string,
         vol.Optional("icon"): vol.Any(None, cv.string),
         vol.Optional("areas"): [cv.string], vol.Optional("devices"): [cv.string],
-        vol.Optional("persistent"): cv.boolean, vol.Optional("repeat_sound"): cv.boolean,
+        vol.Optional("persistent"): cv.boolean,
         vol.Optional("timeout"): vol.Any(None, int), vol.Optional("volume"): vol.Any(None, int),
         vol.Optional("source_device"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "remove_announcement", remove_announcement, schema=vol.Schema({
@@ -356,6 +356,33 @@ async def _register_sound_path(hass: HomeAssistant) -> None:
             hass.data[flag] = True
         except Exception:  # noqa: BLE001
             pass
+
+
+async def _register_announce_cache_path(hass: HomeAssistant) -> str | None:
+    """Serve stitched announcement clips at /teds_cards_backend/announce_cache/* and
+    return the writable cache directory (under the config dir, so it survives updates)."""
+    cache_dir = hass.config.path(f"{DOMAIN}_cache")
+    try:
+        await hass.async_add_executor_job(lambda: os.makedirs(cache_dir, exist_ok=True))
+    except Exception:  # noqa: BLE001 - if we can't make the dir, combining is skipped
+        return None
+    flag = f"{DOMAIN}_announce_cache_registered"
+    if not hass.data.get(flag):
+        url = "/teds_cards_backend/announce_cache"
+        try:
+            from homeassistant.components.http import StaticPathConfig
+
+            await hass.http.async_register_static_paths(
+                [StaticPathConfig(url, cache_dir, False)]
+            )
+            hass.data[flag] = True
+        except Exception:  # noqa: BLE001 - fall back for older HA cores
+            try:
+                hass.http.register_static_path(url, cache_dir, False)
+                hass.data[flag] = True
+            except Exception:  # noqa: BLE001
+                return None
+    return cache_dir
 
 
 async def _register_background_path(hass: HomeAssistant) -> None:

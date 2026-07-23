@@ -136,9 +136,7 @@ SETTINGS_DEFAULTS = {
     "announce_sound": DEFAULT_SOUND,
     # Volume (0-100) for announcement speech + alert sound.
     "announce_volume": 80,
-    # Default "repeat the alert sound after speech" for persistent announcements.
-    "announce_repeat_default": True,
-    # Default auto-dismiss timeout (seconds) for one-shot announcements.
+    # Default auto-dismiss timeout (seconds) for "Play once" announcements.
     "announce_timeout_default": 30,
     # General
     "do_not_disturb": False,

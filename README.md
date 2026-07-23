@@ -9,6 +9,11 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.68
+
+- **Announcements: one stitched clip fixes the stutter.** On high-latency speakers (some tablets/cast devices) each separate sound/TTS call took several seconds to start, so the chime→speech→chime→message sequence dragged on. Now the whole sequence is stitched into a single audio clip (via ffmpeg) and played with **one** call, so the device's startup lag is paid once and it plays gaplessly. Falls back to separate clips if stitching isn't available. Timing diagnostics are logged when Debug mode is on.
+- **Simpler repeat + unified timeout.** Every "Until dismissed" announcement repeats its alert chime (the separate `repeat_sound` option is gone). The **timeout** now auto-dismisses the on-screen message **and** stops the repeating sound together — and dismissing the message (by tap or timeout) always stops the sound. Pairs with Ted's Cards v1.0.296+.
+
 ### v1.0.67
 
 - **Announcement prep-then-show.** An incoming announcement now fully prepares its audio first — the "Announcement incoming" preface and the message are generated and measured up front (server-side) — and only then does the on-screen message appear and the sequence play. This keeps the visual and audio in sync and removes the last of the timing glitches; brand-new messages have a brief one-time prep before they show (repeats are instant).

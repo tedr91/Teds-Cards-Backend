@@ -52,6 +52,8 @@ class TedsManager:
         self.version: str | None = None
         # media-source URI of the dedicated "Ted Dash System" wallpaper folder.
         self.media_folder: str | None = None
+        # Writable dir where stitched announcement clips are cached + served.
+        self.announce_cache_dir: str | None = None
         self.playback = PlaybackEngine(self)
         self._listeners: list = []
         self._update_cbs: set = set()
@@ -393,14 +395,14 @@ class TedsManager:
 
     # ── announcements ───────────────────────────────────────
     async def announce(self, message, title="Announcement", icon=None, areas=None,
-                       devices=None, persistent=False, repeat_sound=False,
-                       timeout=None, volume=None, source_device=None):
+                       devices=None, persistent=False, timeout=None, volume=None,
+                       source_device=None):
         """Broadcast a spoken announcement to the targeted areas/devices.
 
         Fires an "announcement"-source notification (a prominent, centered toast on
-        the targeted screens) and speaks `message` on their players. Persistent
-        announcements stay until dismissed and (optionally) loop an alert chime after
-        the speech; one-shot announcements auto-dismiss after `timeout` seconds.
+        the targeted screens) and speaks `message` on their players. "Until dismissed"
+        (persistent) announcements stay + loop an alert chime after the spoken clip
+        until dismissed; "Play once" announcements auto-dismiss after `timeout` seconds.
 
         `source_device` (the id of the device that sent it) is carried on the toast so
         recipients can Reply straight back to the sender.
@@ -434,27 +436,42 @@ class TedsManager:
             area=primary_area,
             actions=actions,
             notif_id=nid,
-            # Persistent = stays until dismissed (toast timeout None); one-shot auto-closes.
-            timeout=None if persistent else timeout,
+            # The timeout caps BOTH the on-screen message and the repeating alert sound
+            # (0 = stay until manually dismissed). Same for both modes.
+            timeout=timeout,
             persistence="normal" if persistent else "transient",
             source="announcement",
             announce_targets=targets,
             play_sound=False,
         )
         # 3) Play the prepared sequence (chime → "Announcement incoming" → chime →
-        # message → alert once/repeat); no-op when there's no speaker to target.
+        # message → alert; loops the chime until dismissed when persistent). No-op
+        # when there's no speaker to target.
         self.playback.start_prepared(
-            prep, nid, persistent=persistent, repeat_sound=repeat_sound, timeout=timeout,
+            prep, nid, persistent=persistent, timeout=timeout,
         )
+        # Auto-dismiss after the timeout: closes the message on every screen AND stops
+        # the repeating alert sound (0/None = stay until the user dismisses it).
+        if timeout and int(timeout) > 0:
+            async_call_later(self.hass, float(timeout), self._announce_timeout_cb(nid))
         self._record_recent_announcement(
-            message, title, icon, areas, devices, persistent, repeat_sound, timeout,
+            message, title, icon, areas, devices, persistent, timeout,
         )
         await self._save()
         self._notify()
         return nid
 
+    @callback
+    def _announce_timeout_cb(self, notif_id):
+        """A one-shot callback that auto-dismisses an announcement (box + sound)."""
+        @callback
+        def _cb(_now=None):
+            self.hass.async_create_task(self.dismiss_notification(notif_id))
+
+        return _cb
+
     def _record_recent_announcement(self, message, title, icon, areas, devices,
-                                    persistent, repeat_sound, timeout):
+                                    persistent, timeout):
         """Add/refresh a preset in the global Recent announcements list (dedupe + cap)."""
         entry = {
             "id": uuid.uuid4().hex,
@@ -464,7 +481,6 @@ class TedsManager:
             "areas": areas,
             "devices": devices,
             "persistent": persistent,
-            "repeat_sound": repeat_sound,
             "timeout": timeout,
             "last_sent": dt_util.utcnow().isoformat(),
         }
