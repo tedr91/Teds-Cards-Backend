@@ -22,6 +22,7 @@ state so nothing is left in a weird state.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import os
@@ -151,6 +152,9 @@ class PlaybackEngine:
         self.hass.async_create_task(self._run(plays, notif_id, repeat, timeout))
 
     # ── announcements (spoken TTS + optional repeating chime) ────────────────
+    # Spoken preface played between the two incoming-signal chimes.
+    _INCOMING_PHRASE = "Announcement incoming"
+
     def announce(self, message, notif_id, areas=None, devices=None,
                  persistent=False, repeat_sound=False, timeout=None, volume=None) -> None:
         """Speak `message` on the targeted areas/devices; loop a chime if persistent+repeat."""
@@ -204,34 +208,72 @@ class PlaybackEngine:
 
     async def _run_announcement(self, message, engine, plays, notif_id, chime,
                                 loop_chime, timeout, volume) -> None:
-        """Speak on each target, then (optionally) loop a chime until dismissed."""
+        """Play the announcement sequence on each target, in order:
+
+            1. alert chime once (incoming signal)
+            2. TTS "Announcement incoming"
+            3. alert chime once again
+            4. TTS the announcement text
+            5. alert chime — once, or repeating until dismissed (persistent + repeat)
+
+        Steps are spaced by each clip's (estimated) length so they play sequentially.
+        A placeholder entry is registered up front so a dismiss mid-sequence aborts it.
+        """
         if notif_id:
             old = self._active.pop(notif_id, None)
             if old:
                 self._cancel_timers(old)
+            self._active[notif_id] = {"plays": [], "loops": [], "cancels": []}
 
-        media_id = self._tts_media_id(message, engine)
-        if media_id is not None:
-            for p in plays:
-                await self._speak(p["mp"], media_id, p["announce"], volume)
+        def _live() -> bool:
+            return notif_id is None or notif_id in self._active
 
-        if not notif_id or not loop_chime:
+        chime_len = await self._sound_duration(chime)
+        intro_media = self._tts_media_id(self._INCOMING_PHRASE, engine)
+        message_media = self._tts_media_id(message, engine)
+
+        # 1) incoming-signal chime
+        await self._play_chime_all(plays, chime, volume)
+        await asyncio.sleep(chime_len)
+        # 2) "Announcement incoming"
+        if _live() and intro_media is not None:
+            await self._speak_all(plays, intro_media, volume)
+            await asyncio.sleep(self._estimate_speech(self._INCOMING_PHRASE) + 0.5)
+        # 3) chime again
+        if _live():
+            await self._play_chime_all(plays, chime, volume)
+            await asyncio.sleep(chime_len)
+        # 4) the announcement text
+        if _live() and message_media is not None:
+            await self._speak_all(plays, message_media, volume)
+            await asyncio.sleep(self._estimate_speech(message) + 0.5)
+        if not _live():
             return
 
-        # After the (estimated) speech length, loop the chime every chime length so
-        # the announcement keeps alerting until the user dismisses it.
-        entry = {"plays": [], "loops": [], "cancels": []}
-        chime_len = await self._sound_duration(chime)
-        start_delay = self._estimate_speech(message) + 0.5
+        # 5) alert chime — repeat until dismissed for persistent+repeat, else once.
+        entry = self._active.get(notif_id) if notif_id else None
+        if loop_chime and notif_id and entry is not None:
+            for p in plays:
+                entry["loops"].append(
+                    self._schedule_announce_chime(notif_id, p, chime, chime_len, chime_len, volume)
+                )
+        else:
+            await self._play_chime_all(plays, chime, volume)
+            if notif_id:
+                self._active.pop(notif_id, None)
+
+    async def _play_chime_all(self, plays, chime, volume) -> None:
+        """Play the alert chime once on every target player."""
         for p in plays:
-            entry["loops"].append(
-                self._schedule_announce_chime(notif_id, p, chime, chime_len, start_delay, volume)
-            )
-        if timeout:
-            entry["cancels"].append(
-                async_call_later(self.hass, float(timeout), self._auto_stop(notif_id))
-            )
-        self._active[notif_id] = entry
+            if p["announce"]:
+                await self._announce(p["mp"], chime, volume)
+            else:
+                await self._play_once(p["mp"], chime, volume)
+
+    async def _speak_all(self, plays, media_id, volume) -> None:
+        """Speak a TTS media-source id on every target player."""
+        for p in plays:
+            await self._speak(p["mp"], media_id, p["announce"], volume)
 
     def _schedule_announce_chime(self, notif_id, p, chime, chime_len, start_delay, volume):
         """Play `chime` on `p` after `start_delay`, then every `chime_len` until stopped."""

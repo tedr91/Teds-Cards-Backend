@@ -89,6 +89,7 @@ announce:
     repeat_sound: { selector: { boolean: {} } }
     timeout: { selector: { number: { min: 0, max: 600, unit_of_measurement: "s" } } }
     volume: { selector: { number: { min: 0, max: 100, unit_of_measurement: "%" } } }
+    source_device: { selector: { text: {} } }
 remove_announcement:
   name: Remove recent announcement
   fields:

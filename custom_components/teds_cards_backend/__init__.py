@@ -93,6 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             devices=call.data.get("devices"), persistent=call.data.get("persistent", False),
             repeat_sound=call.data.get("repeat_sound", False),
             timeout=call.data.get("timeout"), volume=call.data.get("volume"),
+            source_device=call.data.get("source_device"),
         )
 
     async def remove_announcement(call: ServiceCall):
@@ -184,7 +185,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         vol.Optional("icon"): vol.Any(None, cv.string),
         vol.Optional("areas"): [cv.string], vol.Optional("devices"): [cv.string],
         vol.Optional("persistent"): cv.boolean, vol.Optional("repeat_sound"): cv.boolean,
-        vol.Optional("timeout"): vol.Any(None, int), vol.Optional("volume"): vol.Any(None, int)}))
+        vol.Optional("timeout"): vol.Any(None, int), vol.Optional("volume"): vol.Any(None, int),
+        vol.Optional("source_device"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "remove_announcement", remove_announcement, schema=vol.Schema({
         vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "set_setting", set_setting, schema=vol.Schema({

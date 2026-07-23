@@ -394,13 +394,16 @@ class TedsManager:
     # ── announcements ───────────────────────────────────────
     async def announce(self, message, title="Announcement", icon=None, areas=None,
                        devices=None, persistent=False, repeat_sound=False,
-                       timeout=None, volume=None):
+                       timeout=None, volume=None, source_device=None):
         """Broadcast a spoken announcement to the targeted areas/devices.
 
         Fires an "announcement"-source notification (a prominent, centered toast on
         the targeted screens) and speaks `message` on their players. Persistent
         announcements stay until dismissed and (optionally) loop an alert chime after
         the speech; one-shot announcements auto-dismiss after `timeout` seconds.
+
+        `source_device` (the id of the device that sent it) is carried on the toast so
+        recipients can Reply straight back to the sender.
         """
         message = (message or "").strip()
         if not message:
@@ -412,6 +415,12 @@ class TedsManager:
         # notification-center filtering meaningful; announce_targets scopes the toast.
         primary_area = areas[0] if areas else None
         actions = [{"label": "Dismiss", "action": "dismiss"}] if persistent else None
+        targets = {"areas": areas, "devices": devices}
+        if source_device:
+            targets["source_device"] = source_device
+            targets["source_device_name"] = (
+                self.device_registry.get(source_device, {}).get("name")
+            )
         self._add_notification(
             title=title,
             message=message,
@@ -424,7 +433,7 @@ class TedsManager:
             timeout=None if persistent else timeout,
             persistence="normal" if persistent else "transient",
             source="announcement",
-            announce_targets={"areas": areas, "devices": devices},
+            announce_targets=targets,
             play_sound=False,
         )
         # Speak now (and, for persistent + repeat_sound, loop a chime until dismissed).

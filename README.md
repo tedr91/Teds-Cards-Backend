@@ -9,6 +9,11 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.64
+
+- **Announcements now chime, preface, then speak.** Each received announcement plays an ordered sequence on the target speaker: alert chime → “Announcement incoming” → alert chime → the message → the alert chime once more (or on repeat until dismissed for a persistent announcement). Dismissing mid-sequence stops it.
+- **Reply to announcements.** The `announce` service accepts a `source_device`, carried on the toast so a recipient can reply straight back to the sender (used by the Ted's Announce card's new Reply button). Pairs with Ted's Cards v1.0.294+.
+
 ### v1.0.63
 
 - **Announcements** — a new `teds_cards_backend.announce` service (and the Ted's Announce card) speaks a message aloud on the targeted rooms/devices and shows a prominent, centered toast on their screens. Speech uses each speaker's best method — Music Assistant / Sonos / Alexa-style players duck and auto-resume; others play directly — via the TTS engine set in Settings → Announce. Persistent announcements can loop an alert chime until dismissed. Adds a global predefined-message list, per-announcement targeting by area and/or registered device, a `sensor.teds_announcements` recent list, and a `remove_announcement` service. Pairs with Ted's Cards v1.0.287+.
