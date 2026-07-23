@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.72
+
+- **Announcements: repeat chime now behaves like a finished timer.** The finishing chime is always baked into the spoken clip, and “until dismissed” announcements now start their repeating alert chime **exactly when the clip ends** — the loop is timed off the clip's *measured* length, so the long silence before the repeat (and the drawn-out gaps between chimes) are gone. It now rings on repeat right after the announcement, just like a timer going off. Pairs with Ted's Cards v1.0.298+.
+
 ### v1.0.71
 
 - **Announcements: no duplicate Dismiss, seamless repeat chime.** “Until dismissed” announcements previously showed **two Dismiss buttons** and left a noticeable **gap before the alert chime started repeating**. The extra button is gone (the message box's own Dismiss handles it), and the stitched clip now ends right at the message so the repeating alert chime begins seamlessly at its finish — no gap. Pairs with Ted's Cards v1.0.298+.
