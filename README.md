@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.74
+
+- **Less jarring dismissals.** Repeating alert sounds (timers, alarms, announcement chimes) now re-check that the alert is still active immediately before each repeat, so dismissing one no longer lets a stray extra sound slip through from a repeat that was already queued. Pairs with Ted's Cards v1.0.300+.
+
 ### v1.0.73
 
 - **Announcements speak a preface and the title.** The spoken sequence is now **chime → preface → title → 0.5s pause → message → chime**. The preface comes from a new **Spoken preface** setting (default “Incoming announcement”, blank = none), and a predefined announcement's title is read aloud before the message (free-text sends with no real title are unaffected). Pairs with Ted's Cards v1.0.299+.

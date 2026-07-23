@@ -541,14 +541,21 @@ class PlaybackEngine:
         def _tick(_now=None):
             if notif_id not in self._active:
                 return
-            if p["announce"]:
-                self.hass.async_create_task(self._announce(p["mp"], chime, volume))
-            else:
-                self.hass.async_create_task(self._play_once(p["mp"], chime, volume))
+            self.hass.async_create_task(self._chime_play(notif_id, p, chime, volume))
             loop["cancel"] = async_call_later(self.hass, chime_len, _tick)
 
         loop["cancel"] = async_call_later(self.hass, start_delay, _tick)
         return loop
+
+    async def _chime_play(self, notif_id, p, chime, volume) -> None:
+        """One announce-chime iteration, re-checking liveness so a dismiss between the
+        tick and this play doesn't fire an extra trailing chime."""
+        if notif_id not in self._active:
+            return
+        if p["announce"]:
+            await self._announce(p["mp"], chime, volume)
+        else:
+            await self._play_once(p["mp"], chime, volume)
 
     async def _speak(self, mp, media_id, announce, volume) -> None:
         """Play a TTS media-source id on `mp` (announce-ducked when supported)."""
@@ -711,14 +718,21 @@ class PlaybackEngine:
         def _tick(_now=None):
             if notif_id not in self._active:
                 return
-            if p["announce"]:
-                self.hass.async_create_task(self._announce(p["mp"], p["sound"], p.get("volume")))
-            else:
-                self.hass.async_create_task(self._replay(p["mp"], p["sound"]))
+            self.hass.async_create_task(self._loop_play(notif_id, p))
             loop["cancel"] = async_call_later(self.hass, duration, _tick)
 
         loop["cancel"] = async_call_later(self.hass, duration, _tick)
         return loop
+
+    async def _loop_play(self, notif_id, p) -> None:
+        """One loop iteration, re-checking liveness so a dismiss that lands between
+        the tick and this play doesn't fire an extra (jarring) trailing sound."""
+        if notif_id not in self._active:
+            return
+        if p["announce"]:
+            await self._announce(p["mp"], p["sound"], p.get("volume"))
+        else:
+            await self._replay(p["mp"], p["sound"])
 
     async def _announce(self, mp, sound, volume=None) -> None:
         """Play `sound` as an announcement (native duck + auto-resume).
