@@ -25,6 +25,11 @@ _BACKGROUND_DIRS = {"general": "general", "light": "light-mode", "dark": "dark-m
 _BACKGROUND_EXTS = (".webp", ".jpg", ".jpeg", ".png", ".gif", ".avif")
 _BACKGROUND_URL = "/teds_cards_backend/backgrounds"
 
+# Bundled alert sounds live here and are served at this URL prefix.
+_SOUNDS_URL = "/teds_cards_backend/sounds"
+# Filename prefix -> category label shown in the sound picker.
+_SOUND_CATEGORIES = (("alarm", "Alarm"), ("timer", "Timer"), ("notification", "Notification"))
+
 
 def _manager(hass: HomeAssistant):
     """The single TedsManager for the integration (first config entry)."""
@@ -41,6 +46,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, handle_subscribe_navigate)
     websocket_api.async_register_command(hass, handle_register_device)
     websocket_api.async_register_command(hass, handle_list_backgrounds)
+    websocket_api.async_register_command(hass, handle_list_sounds)
     websocket_api.async_register_command(hass, handle_list_bing_photos)
     websocket_api.async_register_command(hass, handle_clear_bing_photos_cache)
     websocket_api.async_register_command(hass, handle_favorite_bing_photo)
@@ -159,6 +165,35 @@ def _scan_backgrounds() -> dict:
     return out
 
 
+def _scan_sounds() -> list[dict]:
+    """Enumerate bundled alert sounds with a friendly name + category (blocking I/O).
+
+    Each entry is {file, url, name, category}. The category comes from the filename
+    prefix (alarm/timer/notification), and the name is a title-cased version of the
+    stem (e.g. "notification-alt1" -> "Notification Alt1").
+    """
+    base = os.path.join(os.path.dirname(__file__), "sounds")
+    try:
+        names = sorted(os.listdir(base))
+    except OSError:
+        return []
+    out: list[dict] = []
+    for name in names:
+        if not name.lower().endswith(".mp3"):
+            continue
+        stem = name[:-4]
+        low = stem.lower()
+        category = next((label for pfx, label in _SOUND_CATEGORIES if low.startswith(pfx)), "Other")
+        friendly = stem.replace("-", " ").replace("_", " ").strip().title()
+        out.append({
+            "file": name,
+            "url": f"{_SOUNDS_URL}/{name}",
+            "name": friendly,
+            "category": category,
+        })
+    return out
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): f"{DOMAIN}/list_backgrounds"}
 )
@@ -169,6 +204,18 @@ async def handle_list_backgrounds(
     """Return the bundled wallpaper image URLs grouped by category."""
     result = await hass.async_add_executor_job(_scan_backgrounds)
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/list_sounds"}
+)
+@websocket_api.async_response
+async def handle_list_sounds(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Return the bundled alert sounds (url, friendly name, category)."""
+    result = await hass.async_add_executor_job(_scan_sounds)
+    connection.send_result(msg["id"], {"sounds": result})
 
 
 @websocket_api.websocket_command(

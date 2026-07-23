@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.75
+
+- **Bundled sounds are now listable.** A new `list_sounds` WebSocket endpoint reports the built-in alert sounds (with friendly names + categories), powering the new sound-picker dropdown + preview in Ted's Cards Settings. Pairs with Ted's Cards v1.0.301+.
+
 ### v1.0.74
 
 - **Less jarring dismissals.** Repeating alert sounds (timers, alarms, announcement chimes) now re-check that the alert is still active immediately before each repeat, so dismissing one no longer lets a stray extra sound slip through from a repeat that was already queued. Pairs with Ted's Cards v1.0.300+.
