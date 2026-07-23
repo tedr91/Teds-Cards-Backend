@@ -51,6 +51,8 @@ class PlaybackEngine:
         self._active: dict[str, dict] = {}
         # sound url -> length in seconds (resolved lazily, then cached).
         self._durations: dict[str, float] = {}
+        # (engine\nmessage) -> exact TTS length in seconds (measured + cached).
+        self._tts_durations: dict[str, float] = {}
         self._sounds_dir = os.path.join(os.path.dirname(__file__), "sounds")
 
     @staticmethod
@@ -154,9 +156,8 @@ class PlaybackEngine:
     # ── announcements (spoken TTS + optional repeating chime) ────────────────
     # Spoken preface played between the two incoming-signal chimes.
     _INCOMING_PHRASE = "Announcement incoming"
-    # On announce-capable players, start the next clip this many seconds before the
-    # chime's nominal end so its TTS synthesis overlaps the chime tail (no dead gap).
-    _CHIME_TTS_LEAD = 0.5
+    # Small gap inserted between clips so they don't butt right against each other.
+    _STEP_GAP = 0.2
 
     def announce(self, message, notif_id, areas=None, devices=None,
                  persistent=False, repeat_sound=False, timeout=None, volume=None) -> None:
@@ -234,29 +235,29 @@ class PlaybackEngine:
         chime_len = await self._sound_duration(chime)
         intro_media = self._tts_media_id(self._INCOMING_PHRASE, engine)
         message_media = self._tts_media_id(message, engine)
+        gap = self._STEP_GAP
 
-        # Announce-capable players QUEUE their announcements, so we can fire the next
-        # clip before the chime fully ends (its TTS synthesis then overlaps the chime
-        # tail instead of adding a gap after it). Non-announce players interrupt, so
-        # they must wait the whole chime.
-        all_announce = bool(plays) and all(p["announce"] for p in plays)
-        chime_gap = max(0.15, chime_len - self._CHIME_TTS_LEAD) if all_announce else chime_len
-
-        # 1) incoming-signal chime
+        # 1) incoming-signal chime — fire it now, then pre-generate + measure the TTS
+        # clips WHILE it plays (which also warms HA's TTS cache so the speech starts
+        # instantly rather than pausing to synthesize). We only wait out whatever is
+        # left of the chime after that generation.
+        started = self.hass.loop.time()
         await self._play_chime_all(plays, chime, volume)
-        await asyncio.sleep(chime_gap)
+        intro_dur = (await self._tts_duration(self._INCOMING_PHRASE, engine)) if intro_media is not None else 0.0
+        message_dur = (await self._tts_duration(message, engine)) if message_media is not None else 0.0
+        await self._sleep_remaining(started, chime_len + gap)
         # 2) "Announcement incoming"
         if _live() and intro_media is not None:
             await self._speak_all(plays, intro_media, volume)
-            await asyncio.sleep(self._estimate_speech(self._INCOMING_PHRASE))
+            await asyncio.sleep(intro_dur + gap)
         # 3) chime again
         if _live():
             await self._play_chime_all(plays, chime, volume)
-            await asyncio.sleep(chime_gap)
+            await asyncio.sleep(chime_len + gap)
         # 4) the announcement text
         if _live() and message_media is not None:
             await self._speak_all(plays, message_media, volume)
-            await asyncio.sleep(self._estimate_speech(message))
+            await asyncio.sleep(message_dur + gap)
         if not _live():
             return
 
@@ -338,9 +339,57 @@ class PlaybackEngine:
 
     @staticmethod
     def _estimate_speech(message) -> float:
-        """Rough spoken length (seconds) of `message` — ~0.4s/word, clamped 1.2-20s."""
+        """Rough spoken length (seconds) of `message` — ~0.45s/word, clamped 3-30s.
+
+        Only a fallback when the real TTS audio can't be generated/measured.
+        """
         words = len((message or "").split())
-        return min(20.0, max(1.2, words * 0.4 + 0.5))
+        return min(30.0, max(3.0, words * 0.45 + 1.0))
+
+    async def _sleep_remaining(self, started, target) -> None:
+        """Sleep so the total elapsed since `started` (loop time) reaches `target`s."""
+        remaining = target - (self.hass.loop.time() - started)
+        if remaining > 0:
+            await asyncio.sleep(remaining)
+
+    async def _tts_duration(self, message, engine) -> float:
+        """Exact spoken length (seconds) of `message`.
+
+        Pre-generates the TTS audio via HA's tts helper and measures it, which ALSO
+        warms HA's TTS cache so the subsequent play_media starts without a synthesis
+        pause. Cached per (engine, message); falls back to a word-count estimate when
+        TTS generation or measurement is unavailable.
+        """
+        key = f"{engine or ''}\n{message}"
+        if key in self._tts_durations:
+            return self._tts_durations[key]
+        dur = None
+        media_id = self._tts_media_id(message, engine)
+        if media_id is not None:
+            try:
+                from homeassistant.components import tts  # noqa: PLC0415
+
+                _ext, data = await tts.async_get_media_source_audio(self.hass, media_id)
+                dur = await self.hass.async_add_executor_job(self._measure_audio, data)
+            except Exception as ex:  # noqa: BLE001 - measurement is best-effort
+                _LOGGER.debug("Ted's Cards announce: TTS duration measure failed: %s", ex)
+        if dur is None:
+            dur = self._estimate_speech(message)
+        self._tts_durations[key] = dur
+        return dur
+
+    @staticmethod
+    def _measure_audio(data) -> float | None:
+        """Length in seconds of in-memory audio `data` (via mutagen), or None."""
+        try:
+            import mutagen  # noqa: PLC0415 - optional dep, only needed for durations
+
+            audio = mutagen.File(io.BytesIO(data))
+            if audio and audio.info and audio.info.length:
+                return round(float(audio.info.length), 2)
+        except Exception as ex:  # noqa: BLE001 - duration is best-effort
+            _LOGGER.debug("Could not measure TTS audio: %s", ex)
+        return None
 
     def _inspect(self, mp):
         """Return (announce_supported, snapshot) for a media player.

@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.66
+
+- **Announcement timing now uses real audio lengths.** Reverted the v1.0.65 estimate tweak (which could cut the spoken message off) and instead measures the *actual* length of each spoken clip — the TTS audio is generated and measured up front (during the opening chime), which also warms Home Assistant's TTS cache so speech starts without a synthesis pause. No more cut-offs or dead gaps between the chime and the message.
+
 ### v1.0.65
 
 - **Snappier announcement sequence.** Trimmed the dead gap between the alert chime and the spoken steps: on announce-capable speakers the next clip now starts as the chime tail plays (its speech synthesis overlaps the chime instead of adding a pause), and the per-step timing estimates are tighter.
