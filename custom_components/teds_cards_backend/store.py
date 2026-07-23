@@ -455,7 +455,7 @@ class TedsManager:
         if timeout and int(timeout) > 0:
             async_call_later(self.hass, float(timeout), self._announce_timeout_cb(nid))
         self._record_recent_announcement(
-            message, title, icon, areas, devices, persistent, timeout,
+            message, title, icon, areas, devices, persistent, timeout, source_device,
         )
         await self._save()
         self._notify()
@@ -471,7 +471,7 @@ class TedsManager:
         return _cb
 
     def _record_recent_announcement(self, message, title, icon, areas, devices,
-                                    persistent, timeout):
+                                    persistent, timeout, source_device=None):
         """Add/refresh a preset in the global Recent announcements list (dedupe + cap)."""
         entry = {
             "id": uuid.uuid4().hex,
@@ -482,6 +482,10 @@ class TedsManager:
             "devices": devices,
             "persistent": persistent,
             "timeout": timeout,
+            "source_device": source_device,
+            "source_device_name": (
+                self.device_registry.get(source_device, {}).get("name") if source_device else None
+            ),
             "last_sent": dt_util.utcnow().isoformat(),
         }
 
