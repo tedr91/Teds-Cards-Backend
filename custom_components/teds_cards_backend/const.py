@@ -131,6 +131,8 @@ SETTINGS_DEFAULTS = {
     "announce_messages": [],
     # TTS engine entity (tts.*) used to speak announcements. None = HA's default engine.
     "announce_tts_engine": None,
+    # Spoken preface before the title/message ("" = no preface, go straight to the title).
+    "announce_intro_phrase": "Incoming announcement",
     # Alert sound looped after the spoken message on persistent announcements
     # ("default" = the bundled notification chime).
     "announce_sound": DEFAULT_SOUND,

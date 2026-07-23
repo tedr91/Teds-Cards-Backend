@@ -156,20 +156,25 @@ class PlaybackEngine:
         self.hass.async_create_task(self._run(plays, notif_id, repeat, timeout))
 
     # ── announcements (spoken TTS + optional repeating chime) ────────────────
-    # Spoken preface played after the opening incoming-signal chime.
-    _INCOMING_PHRASE = "Announcement incoming"
+    # Default spoken preface (used when the announce_intro_phrase setting is unset).
+    _INCOMING_PHRASE = "Incoming announcement"
     # Small gap inserted between clips so they don't butt right against each other.
     _STEP_GAP = 0.2
-    # Pause between the "Announcement incoming" preface and the message body.
+    # Pause between the spoken preface/title and the message body.
     _MSG_GAP = 0.5
 
-    async def prepare_announcement(self, message, areas=None, devices=None, volume=None):
-        """Resolve targets + engine and PRE-GENERATE + measure both spoken clips.
+    async def prepare_announcement(self, message, title=None, areas=None, devices=None,
+                                   volume=None):
+        """Resolve targets + engine and PRE-GENERATE + measure the spoken clips.
 
         Generating the TTS up front warms Home Assistant's server-side TTS cache and
         yields each clip's exact length, so the sequence later plays back-to-back with
         no synthesis pause and no under/over-run. Returns a prep dict, or None when
         there's no speaker to target (the caller still shows the on-screen message).
+
+        The spoken sequence is: chime → [preface] → [title] → 0.5s pause → message →
+        chime. The preface comes from the `announce_intro_phrase` setting (blank = no
+        preface); the title is spoken when it's a non-empty, non-default heading.
         """
         targets = self._announce_targets(areas, devices)
         if not targets:
@@ -179,9 +184,19 @@ class PlaybackEngine:
         engine = eff0.get("announce_tts_engine") or None
         chime = self._sound_url(eff0.get("announce_sound"), "notification")
         chime_len = await self._sound_duration(chime)
-        intro_media = self._tts_media_id(self._INCOMING_PHRASE, engine)
+        intro_phrase = eff0.get("announce_intro_phrase")
+        if intro_phrase is None:
+            intro_phrase = self._INCOMING_PHRASE
+        intro_phrase = intro_phrase.strip()
+        # The default title is "Announcement" (a placeholder heading), which we don't
+        # want spoken; only speak a real, custom title.
+        title = (title or "").strip()
+        spoken_title = title if title and title.lower() != "announcement" else ""
+        intro_media = self._tts_media_id(intro_phrase, engine) if intro_phrase else None
+        title_media = self._tts_media_id(spoken_title, engine) if spoken_title else None
         message_media = self._tts_media_id(message, engine)
-        intro_dur = (await self._tts_duration(self._INCOMING_PHRASE, engine)) if intro_media is not None else 0.0
+        intro_dur = (await self._tts_duration(intro_phrase, engine)) if intro_media is not None else 0.0
+        title_dur = (await self._tts_duration(spoken_title, engine)) if title_media is not None else 0.0
         message_dur = (await self._tts_duration(message, engine)) if message_media is not None else 0.0
         plays = [{"mp": mp, "announce": self._inspect(mp)[0]} for _eff, mp in targets]
         # Stitch the whole sequence (incl. the finishing chime) into ONE clip so the
@@ -189,13 +204,15 @@ class PlaybackEngine:
         # clips if this fails). combined_dur is the clip's measured length, used to
         # start the repeating alert chime exactly when the clip ends.
         combined_url, combined_dur = await self._build_combined(
-            chime, message, engine, intro_media, message_media
+            chime, message, engine, intro_phrase, spoken_title,
+            intro_media, title_media, message_media,
         )
         return {
             "plays": plays, "chime": chime, "chime_len": chime_len,
-            "intro_media": intro_media, "message_media": message_media,
-            "intro_dur": intro_dur, "message_dur": message_dur, "vol": vol,
-            "combined_url": combined_url, "combined_dur": combined_dur,
+            "intro_media": intro_media, "title_media": title_media,
+            "message_media": message_media,
+            "intro_dur": intro_dur, "title_dur": title_dur, "message_dur": message_dur,
+            "vol": vol, "combined_url": combined_url, "combined_dur": combined_dur,
         }
 
     def start_prepared(self, prep, notif_id, persistent=False, timeout=None) -> None:
@@ -242,10 +259,10 @@ class PlaybackEngine:
     async def _run_prepared(self, prep, notif_id, loop_chime, timeout) -> None:
         """Play the prepared announcement.
 
-        Preferred path: ONE stitched clip (ding → "Announcement incoming" → 0.5s
-        pause → message → ding) played with a single call, so a high-latency device
-        pays its per-play startup cost once and the sequence has no internal gaps. If
-        stitching wasn't available, falls back to playing the clips as a spaced sequence.
+        Preferred path: ONE stitched clip (ding → preface → title → 0.5s pause →
+        message → ding) played with a single call, so a high-latency device pays its
+        per-play startup cost once and the sequence has no internal gaps. If stitching
+        wasn't available, falls back to playing the clips as a spaced sequence.
         A placeholder entry is registered up front so a dismiss mid-sequence aborts it.
         """
         if notif_id:
@@ -261,6 +278,7 @@ class PlaybackEngine:
         chime = prep["chime"]
         chime_len = prep["chime_len"]
         intro_dur = prep["intro_dur"]
+        title_dur = prep.get("title_dur", 0.0)
         message_dur = prep["message_dur"]
         vol = prep["vol"]
         combined_url = prep.get("combined_url")
@@ -296,18 +314,22 @@ class PlaybackEngine:
         # 1) incoming-signal chime
         await self._play_chime_all(plays, chime, vol)
         await asyncio.sleep(chime_len + gap)
-        # 2) "Announcement incoming"
+        # 2) spoken preface ("Incoming announcement"), if configured
         if _live() and prep["intro_media"] is not None:
             await self._speak_all(plays, prep["intro_media"], vol)
-            await asyncio.sleep(intro_dur + self._MSG_GAP)
-        # 3) the announcement text
+            await asyncio.sleep(intro_dur + gap)
+        # 3) the announcement title, if it's a real custom heading
+        if _live() and prep.get("title_media") is not None:
+            await self._speak_all(plays, prep["title_media"], vol)
+            await asyncio.sleep(title_dur + self._MSG_GAP)
+        # 4) the announcement text
         if _live() and prep["message_media"] is not None:
             await self._speak_all(plays, prep["message_media"], vol)
             await asyncio.sleep(message_dur + gap)
         if not _live():
             return
 
-        # 4) alert chime — repeat until dismissed for persistent+repeat, else once.
+        # 5) alert chime — repeat until dismissed for persistent+repeat, else once.
         entry = self._active.get(notif_id) if notif_id else None
         if loop_chime and notif_id and entry is not None:
             for p in plays:
@@ -344,20 +366,22 @@ class PlaybackEngine:
         except NoURLAvailableError:
             return path
 
-    async def _build_combined(self, chime, message, engine, intro_media, message_media):
-        """Stitch ding+intro+pause+message+ding into ONE cached mp3.
+    async def _build_combined(self, chime, message, engine, intro_phrase, spoken_title,
+                              intro_media, title_media, message_media):
+        """Stitch chime+[preface]+[title]+pause+message+chime into ONE cached mp3.
 
         Returns (url, duration_seconds), or (None, 0.0) when the cache dir, TTS, or
-        ffmpeg isn't available. Cached by (engine, chime, message) so repeat sends of
-        the same announcement reuse the file with no re-encoding. The measured
-        duration lets the caller start the repeating alert chime exactly when the clip
-        ends (so the loop continues seamlessly from the baked-in finishing chime).
+        ffmpeg isn't available. Cached by (engine, chime, preface, title, message) so
+        repeat sends of the same announcement reuse the file with no re-encoding. The
+        measured duration lets the caller start the repeating alert chime exactly when
+        the clip ends (so the loop continues seamlessly from the baked-in chime).
         """
         cache_dir = self._m.announce_cache_dir
-        if not cache_dir or intro_media is None or message_media is None:
+        if not cache_dir or message_media is None:
             return None, 0.0
         try:
-            key = hashlib.sha1(f"{engine or ''}|{chime}|{message}".encode("utf-8")).hexdigest()
+            raw = f"{engine or ''}|{chime}|{intro_phrase}|{spoken_title}|{message}"
+            key = hashlib.sha1(raw.encode("utf-8")).hexdigest()
             out_name = f"{key}.mp3"
             out_path = os.path.join(cache_dir, out_name)
             url = self._combined_url(out_name)
@@ -365,11 +389,24 @@ class PlaybackEngine:
                 from homeassistant.components import tts  # noqa: PLC0415
 
                 chime_bytes = await self._audio_bytes(chime)
-                _ie, intro_bytes = await tts.async_get_media_source_audio(self.hass, intro_media)
                 _me, msg_bytes = await tts.async_get_media_source_audio(self.hass, message_media)
-                if not (chime_bytes and intro_bytes and msg_bytes):
+                if not (chime_bytes and msg_bytes):
                     return None, 0.0
-                ok = await self._concat_to(cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes)
+                intro_bytes = title_bytes = None
+                if intro_media is not None:
+                    _ie, intro_bytes = await tts.async_get_media_source_audio(self.hass, intro_media)
+                if title_media is not None:
+                    _te, title_bytes = await tts.async_get_media_source_audio(self.hass, title_media)
+                # Ordered sequence: chime, [preface], [title], 0.5s pause, message, chime.
+                segments: list = [("a", chime_bytes)]
+                if intro_bytes:
+                    segments.append(("a", intro_bytes))
+                if title_bytes:
+                    segments.append(("a", title_bytes))
+                segments.append(("s", self._MSG_GAP))
+                segments.append(("a", msg_bytes))
+                segments.append(("a", chime_bytes))
+                ok = await self._concat_to(cache_dir, out_path, segments)
                 if not ok:
                     return None, 0.0
             dur = await self.hass.async_add_executor_job(self._read_file_duration, out_path)
@@ -421,20 +458,36 @@ class PlaybackEngine:
         except Exception:  # noqa: BLE001
             return None
 
-    async def _concat_to(self, cache_dir, out_path, chime_bytes, intro_bytes, msg_bytes) -> bool:
-        """ffmpeg-concat [chime, intro, 0.5s silence, message, chime] → out_path (mp3)."""
+    async def _concat_to(self, cache_dir, out_path, segments) -> bool:
+        """ffmpeg-concat an ordered list of segments → out_path (mp3).
+
+        Each segment is ("a", audio_bytes) for a clip or ("s", seconds) for a
+        synthesized silence pause. Segments are concatenated in order.
+        """
         stem = uuid.uuid4().hex
-        c_path = os.path.join(cache_dir, f"{stem}_c.mp3")
-        i_path = os.path.join(cache_dir, f"{stem}_i.mp3")
-        m_path = os.path.join(cache_dir, f"{stem}_m.mp3")
+        tmp_paths: list[str] = []
+        input_args: list[str] = []
+        labels: list[str] = []
+        writes: list[tuple[str, bytes]] = []
+        for i, (kind, val) in enumerate(segments):
+            if kind == "a":
+                p = os.path.join(cache_dir, f"{stem}_{i}.mp3")
+                tmp_paths.append(p)
+                writes.append((p, val))
+                input_args += ["-i", p]
+            else:  # silence pause
+                input_args += [
+                    "-f", "lavfi", "-t", f"{val}", "-i", "anullsrc=r=44100:cl=stereo",
+                ]
+            labels.append(f"[{i}:a]")
 
         def _write():
-            for p, b in ((c_path, chime_bytes), (i_path, intro_bytes), (m_path, msg_bytes)):
+            for p, b in writes:
                 with open(p, "wb") as fh:
                     fh.write(b)
 
         def _cleanup():
-            for p in (c_path, i_path, m_path):
+            for p in tmp_paths:
                 try:
                     os.remove(p)
                 except OSError:
@@ -445,14 +498,10 @@ class PlaybackEngine:
             from homeassistant.components import ffmpeg  # noqa: PLC0415
 
             binary = ffmpeg.get_ffmpeg_manager(self.hass).binary
-            # Input 3 is a synthesized silence used as the pause between the preface
-            # and the message. Sequence: chime, intro, silence, message, chime.
+            chain = "".join(labels) + f"concat=n={len(segments)}:v=0:a=1[out]"
             cmd = [
-                binary, "-y",
-                "-i", c_path, "-i", i_path, "-i", m_path,
-                "-f", "lavfi", "-t", f"{self._MSG_GAP}", "-i", "anullsrc=r=44100:cl=stereo",
-                "-filter_complex",
-                "[0:a][1:a][3:a][2:a][0:a]concat=n=5:v=0:a=1[out]",
+                binary, "-y", *input_args,
+                "-filter_complex", chain,
                 "-map", "[out]", "-ac", "2", "-ar", "44100", out_path,
             ]
             proc = await asyncio.create_subprocess_exec(

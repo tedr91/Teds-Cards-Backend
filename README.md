@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.73
+
+- **Announcements speak a preface and the title.** The spoken sequence is now **chime → preface → title → 0.5s pause → message → chime**. The preface comes from a new **Spoken preface** setting (default “Incoming announcement”, blank = none), and a predefined announcement's title is read aloud before the message (free-text sends with no real title are unaffected). Pairs with Ted's Cards v1.0.299+.
+
 ### v1.0.72
 
 - **Announcements: repeat chime now behaves like a finished timer.** The finishing chime is always baked into the spoken clip, and “until dismissed” announcements now start their repeating alert chime **exactly when the clip ends** — the loop is timed off the clip's *measured* length, so the long silence before the repeat (and the drawn-out gaps between chimes) are gone. It now rings on repeat right after the announcement, just like a timer going off. Pairs with Ted's Cards v1.0.298+.
