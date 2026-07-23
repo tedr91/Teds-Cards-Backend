@@ -76,6 +76,9 @@ class PlaybackEngine:
         own alert sound; everything else plays the severity's notification sound).
         """
         source = item.get("source")
+        # Announcements drive their own TTS + chime via `announce()`, not a generic sound.
+        if source == "announcement":
+            return
         kind = "alarm" if source == "alarm" else "timer" if source == "timer" else "notification"
         self.play(
             kind,
@@ -146,6 +149,146 @@ class PlaybackEngine:
             })
 
         self.hass.async_create_task(self._run(plays, notif_id, repeat, timeout))
+
+    # ── announcements (spoken TTS + optional repeating chime) ────────────────
+    def announce(self, message, notif_id, areas=None, devices=None,
+                 persistent=False, repeat_sound=False, timeout=None, volume=None) -> None:
+        """Speak `message` on the targeted areas/devices; loop a chime if persistent+repeat."""
+        targets = self._announce_targets(areas, devices)
+        if not targets:
+            return
+        eff0 = targets[0][0]
+        vol = volume if volume is not None else eff0.get("announce_volume", 80)
+        engine = eff0.get("announce_tts_engine") or None
+        chime = self._sound_url(eff0.get("announce_sound"), "notification")
+        plays = []
+        for _eff, mp in targets:
+            announce_cap, _snap = self._inspect(mp)
+            plays.append({"mp": mp, "announce": announce_cap})
+        loop_chime = bool(persistent and repeat_sound)
+        self.hass.async_create_task(
+            self._run_announcement(message, engine, plays, notif_id, chime,
+                                   loop_chime, timeout, vol)
+        )
+
+    def _announce_targets(self, areas, devices):
+        """(effective_settings, player) for each distinct player targeted by an announcement.
+
+        Targets the union of present devices whose registered area is in `areas` and
+        present devices whose id is in `devices`. When neither is given it's house-wide
+        (every present device). Devices in Do Not Disturb are skipped.
+        """
+        m = self._m
+        area_set = set(areas or [])
+        device_set = set(devices or [])
+        house_wide = not area_set and not device_set
+        seen = set()
+        out = []
+        for did, entry in m._present_devices():
+            if not (house_wide or did in device_set or entry.get("area") in area_set):
+                continue
+            eff = m.effective_settings(did)
+            if eff.get("do_not_disturb"):
+                continue
+            mp = eff.get("system_sound_player") or entry.get("media_player")
+            if not mp or mp in seen:
+                continue
+            seen.add(mp)
+            out.append((eff, mp))
+        if not out and house_wide:
+            eff = m.effective_settings(None)
+            mp = eff.get("system_sound_player")
+            if mp and not eff.get("do_not_disturb"):
+                out.append((eff, mp))
+        return out
+
+    async def _run_announcement(self, message, engine, plays, notif_id, chime,
+                                loop_chime, timeout, volume) -> None:
+        """Speak on each target, then (optionally) loop a chime until dismissed."""
+        if notif_id:
+            old = self._active.pop(notif_id, None)
+            if old:
+                self._cancel_timers(old)
+
+        media_id = self._tts_media_id(message, engine)
+        if media_id is not None:
+            for p in plays:
+                await self._speak(p["mp"], media_id, p["announce"], volume)
+
+        if not notif_id or not loop_chime:
+            return
+
+        # After the (estimated) speech length, loop the chime every chime length so
+        # the announcement keeps alerting until the user dismisses it.
+        entry = {"plays": [], "loops": [], "cancels": []}
+        chime_len = await self._sound_duration(chime)
+        start_delay = self._estimate_speech(message) + 0.5
+        for p in plays:
+            entry["loops"].append(
+                self._schedule_announce_chime(notif_id, p, chime, chime_len, start_delay, volume)
+            )
+        if timeout:
+            entry["cancels"].append(
+                async_call_later(self.hass, float(timeout), self._auto_stop(notif_id))
+            )
+        self._active[notif_id] = entry
+
+    def _schedule_announce_chime(self, notif_id, p, chime, chime_len, start_delay, volume):
+        """Play `chime` on `p` after `start_delay`, then every `chime_len` until stopped."""
+        loop: dict = {}
+
+        @callback
+        def _tick(_now=None):
+            if notif_id not in self._active:
+                return
+            if p["announce"]:
+                self.hass.async_create_task(self._announce(p["mp"], chime, volume))
+            else:
+                self.hass.async_create_task(self._play_once(p["mp"], chime, volume))
+            loop["cancel"] = async_call_later(self.hass, chime_len, _tick)
+
+        loop["cancel"] = async_call_later(self.hass, start_delay, _tick)
+        return loop
+
+    async def _speak(self, mp, media_id, announce, volume) -> None:
+        """Play a TTS media-source id on `mp` (announce-ducked when supported)."""
+        data = {
+            "entity_id": mp,
+            "media_content_id": media_id,
+            "media_content_type": "music",
+        }
+        try:
+            if announce:
+                data["announce"] = True
+                if volume is not None:
+                    data["extra"] = {"announce_volume": int(float(volume))}
+            elif volume is not None:
+                level = max(0.0, min(1.0, (float(volume or 0)) / 100.0))
+                await self.hass.services.async_call(
+                    "media_player", "volume_set",
+                    {"entity_id": mp, "volume_level": level}, blocking=False,
+                )
+            await self.hass.services.async_call(
+                "media_player", "play_media", data, blocking=False,
+            )
+        except Exception:  # noqa: BLE001 - a bad media_player must not break announcing
+            pass
+
+    def _tts_media_id(self, message, engine):
+        """Build a TTS media-source id for `message` (None when TTS is unavailable)."""
+        try:
+            from homeassistant.components.tts import media_source as tts_ms  # noqa: PLC0415
+
+            return tts_ms.generate_media_source_id(self.hass, message, engine=engine or None)
+        except Exception as ex:  # noqa: BLE001 - TTS is best-effort
+            _LOGGER.warning("Ted's Cards announce: could not build TTS media id: %s", ex)
+            return None
+
+    @staticmethod
+    def _estimate_speech(message) -> float:
+        """Rough spoken length (seconds) of `message` — ~0.45s/word, clamped 3-30s."""
+        words = len((message or "").split())
+        return min(30.0, max(3.0, words * 0.45 + 1.0))
 
     def _inspect(self, mp):
         """Return (announce_supported, snapshot) for a media player.

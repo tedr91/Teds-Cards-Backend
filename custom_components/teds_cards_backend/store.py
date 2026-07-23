@@ -21,6 +21,7 @@ from .const import (
     EVENT_SETTINGS,
     EVENT_TIMER_FINISHED,
     NOTIFICATIONS_MAX,
+    RECENT_ANNOUNCEMENTS_MAX,
     RECENT_TIMERS_MAX,
     SETTINGS_DEFAULTS,
     SETTINGS_KEYS,
@@ -39,6 +40,8 @@ class TedsManager:
         self.recent: list[dict] = []  # last N timer presets (h/m/s + name)
         self.active: dict[str, dict] = {}  # id -> {name, ends, cancel}
         self.notifications: list[dict] = []  # newest-first notification list
+        # last N announcements (message + targets) for quick re-send, newest-first.
+        self.recent_announcements: list[dict] = []
         # Settings: global baseline + per-device overrides (only overridden keys stored).
         self.settings: dict = {"global": {}, "devices": {}}
         # Devices that have registered themselves (device_id -> {area, name, last_seen}).
@@ -58,6 +61,7 @@ class TedsManager:
         self.alarms = data.get("alarms", [])
         self.recent = data.get("recent", [])
         self.notifications = data.get("notifications", [])
+        self.recent_announcements = data.get("recent_announcements", [])
         stored_settings = data.get("settings") or {}
         self.settings = {
             "global": dict(stored_settings.get("global") or {}),
@@ -72,6 +76,7 @@ class TedsManager:
             "alarms": self.alarms,
             "recent": self.recent,
             "notifications": self.notifications,
+            "recent_announcements": self.recent_announcements,
             "settings": self.settings,
             "devices": self.device_registry,
         })
@@ -277,13 +282,18 @@ class TedsManager:
     # ── notifications ───────────────────────────────────────
     def _add_notification(self, *, title, message, severity="info", icon=None,
                           area=None, actions=None, notif_id=None, timeout=None,
-                          persistence="normal", source="service", snooze=None):
+                          persistence="normal", source="service", snooze=None,
+                          announce_targets=None, play_sound=True):
         """Create a notification, fire the event, play sound, and refresh sensors.
 
         `persistence` controls its lifetime:
           - "transient": shown as a toast (+ sound) but never stored in the list.
           - "normal":    stored; auto-removed when the user reads/dismisses it.
           - "sticky":    stored; marked read on interaction, kept until cleared.
+
+        `announce_targets` ({areas, devices}) scopes an announcement toast to the
+        selected devices/areas on the client side. `play_sound=False` skips the
+        generic alert sound (announcements drive their own TTS + chime instead).
         """
         nid = notif_id or uuid.uuid4().hex
         item = {
@@ -303,6 +313,7 @@ class TedsManager:
             "snooze": snooze,
             "actions": actions or [],
             "source": source,
+            "announce_targets": announce_targets,
         }
         # Transient notifications are never persisted: just deliver the toast + sound.
         if persistence != "transient":
@@ -314,7 +325,8 @@ class TedsManager:
         # Single spot that drives sound for every notification (mapped by source +
         # severity). Alarm/timer alerts use their own sounds; others use the
         # per-severity notification sound.
-        self.playback.on_notification(item)
+        if play_sound:
+            self.playback.on_notification(item)
         return item
 
     async def notify(self, title, message, severity="info", icon=None, area=None,
@@ -378,6 +390,90 @@ class TedsManager:
         toasts close on every device (not just the one that acted)."""
         self.playback.stop(notif_id)
         self.hass.bus.async_fire(EVENT_NOTIFICATION, {"id": notif_id, "dismissed": True})
+
+    # ── announcements ───────────────────────────────────────
+    async def announce(self, message, title="Announcement", icon=None, areas=None,
+                       devices=None, persistent=False, repeat_sound=False,
+                       timeout=None, volume=None):
+        """Broadcast a spoken announcement to the targeted areas/devices.
+
+        Fires an "announcement"-source notification (a prominent, centered toast on
+        the targeted screens) and speaks `message` on their players. Persistent
+        announcements stay until dismissed and (optionally) loop an alert chime after
+        the speech; one-shot announcements auto-dismiss after `timeout` seconds.
+        """
+        message = (message or "").strip()
+        if not message:
+            return None
+        areas = [a for a in (areas or []) if a]
+        devices = [d for d in (devices or []) if d]
+        nid = uuid.uuid4().hex
+        # A primary area (first selected, else None = house-wide) keeps area_name/
+        # notification-center filtering meaningful; announce_targets scopes the toast.
+        primary_area = areas[0] if areas else None
+        actions = [{"label": "Dismiss", "action": "dismiss"}] if persistent else None
+        self._add_notification(
+            title=title,
+            message=message,
+            severity="info",
+            icon=icon or "mdi:bullhorn",
+            area=primary_area,
+            actions=actions,
+            notif_id=nid,
+            # Persistent = stays until dismissed (toast timeout None); one-shot auto-closes.
+            timeout=None if persistent else timeout,
+            persistence="normal" if persistent else "transient",
+            source="announcement",
+            announce_targets={"areas": areas, "devices": devices},
+            play_sound=False,
+        )
+        # Speak now (and, for persistent + repeat_sound, loop a chime until dismissed).
+        self.playback.announce(
+            message, nid, areas=areas, devices=devices,
+            persistent=persistent, repeat_sound=repeat_sound,
+            timeout=timeout, volume=volume,
+        )
+        self._record_recent_announcement(
+            message, title, icon, areas, devices, persistent, repeat_sound, timeout,
+        )
+        await self._save()
+        self._notify()
+        return nid
+
+    def _record_recent_announcement(self, message, title, icon, areas, devices,
+                                    persistent, repeat_sound, timeout):
+        """Add/refresh a preset in the global Recent announcements list (dedupe + cap)."""
+        entry = {
+            "id": uuid.uuid4().hex,
+            "message": message,
+            "title": title,
+            "icon": icon,
+            "areas": areas,
+            "devices": devices,
+            "persistent": persistent,
+            "repeat_sound": repeat_sound,
+            "timeout": timeout,
+            "last_sent": dt_util.utcnow().isoformat(),
+        }
+
+        def _same(r):
+            return (r.get("message") == message
+                    and r.get("areas") == areas
+                    and r.get("devices") == devices
+                    and bool(r.get("persistent")) == bool(persistent))
+
+        self.recent_announcements = [entry] + [
+            r for r in self.recent_announcements if not _same(r)
+        ]
+        del self.recent_announcements[RECENT_ANNOUNCEMENTS_MAX:]
+
+    async def remove_recent_announcement(self, rid):
+        """Drop an entry from the Recent announcements list."""
+        self.recent_announcements = [
+            r for r in self.recent_announcements if r.get("id") != rid
+        ]
+        await self._save()
+        self._notify()
 
     # ── settings ────────────────────────────────────────────
     def effective_settings(self, device_id=None) -> dict:

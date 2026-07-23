@@ -86,6 +86,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def clear_notifications(call: ServiceCall):
         await manager.clear_notifications(call.data.get("area"))
 
+    async def announce(call: ServiceCall):
+        await manager.announce(
+            call.data["message"], title=call.data.get("title", "Announcement"),
+            icon=call.data.get("icon"), areas=call.data.get("areas"),
+            devices=call.data.get("devices"), persistent=call.data.get("persistent", False),
+            repeat_sound=call.data.get("repeat_sound", False),
+            timeout=call.data.get("timeout"), volume=call.data.get("volume"),
+        )
+
+    async def remove_announcement(call: ServiceCall):
+        await manager.remove_recent_announcement(call.data["id"])
+
     async def _require_admin_for_global(call: ServiceCall) -> None:
         """Only admins may write Global settings; device-scope writes are open."""
         if call.data.get("scope", "global") != "global":
@@ -167,6 +179,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         vol.Optional("id"): cv.string, vol.Optional("area"): vol.Any(None, cv.string)}))
     hass.services.async_register(DOMAIN, "clear_notifications", clear_notifications, schema=vol.Schema({
         vol.Optional("area"): vol.Any(None, cv.string)}))
+    hass.services.async_register(DOMAIN, "announce", announce, schema=vol.Schema({
+        vol.Required("message"): cv.string, vol.Optional("title"): cv.string,
+        vol.Optional("icon"): vol.Any(None, cv.string),
+        vol.Optional("areas"): [cv.string], vol.Optional("devices"): [cv.string],
+        vol.Optional("persistent"): cv.boolean, vol.Optional("repeat_sound"): cv.boolean,
+        vol.Optional("timeout"): vol.Any(None, int), vol.Optional("volume"): vol.Any(None, int)}))
+    hass.services.async_register(DOMAIN, "remove_announcement", remove_announcement, schema=vol.Schema({
+        vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "set_setting", set_setting, schema=vol.Schema({
         vol.Required("key"): cv.string, vol.Optional("value"): vol.Any(None, bool, int, float, cv.string, list, dict),
         vol.Optional("scope"): vol.In(["global", "device"]), vol.Optional("device_id"): cv.string}))

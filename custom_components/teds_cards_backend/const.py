@@ -8,6 +8,9 @@ STORAGE_KEY = DOMAIN
 # How many most-recent timers to remember for quick re-start.
 RECENT_TIMERS_MAX = 5
 
+# How many most-recent announcements to remember for quick re-send.
+RECENT_ANNOUNCEMENTS_MAX = 10
+
 # How many notifications to keep in the store (FIFO, newest kept).
 NOTIFICATIONS_MAX = 50
 
@@ -123,6 +126,20 @@ SETTINGS_DEFAULTS = {
     "launcher_button_color": "white",
     # Ring color marking the current view's button.
     "launcher_highlight_color": "accent",
+    # Announce — spoken announcements broadcast to Ted's Dashboard devices/areas.
+    # Global list of predefined messages: [{id, label, text, icon?}].
+    "announce_messages": [],
+    # TTS engine entity (tts.*) used to speak announcements. None = HA's default engine.
+    "announce_tts_engine": None,
+    # Alert sound looped after the spoken message on persistent announcements
+    # ("default" = the bundled notification chime).
+    "announce_sound": DEFAULT_SOUND,
+    # Volume (0-100) for announcement speech + alert sound.
+    "announce_volume": 80,
+    # Default "repeat the alert sound after speech" for persistent announcements.
+    "announce_repeat_default": True,
+    # Default auto-dismiss timeout (seconds) for one-shot announcements.
+    "announce_timeout_default": 30,
     # General
     "do_not_disturb": False,
     "debug_mode": False,
