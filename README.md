@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.69
+
+- **Recent announcements remember the sender.** Each recent announcement now records the device that sent it, so the Announce card can show “from &lt;device&gt;” and offer a reply. Pairs with Ted's Cards v1.0.297+.
+
 ### v1.0.68
 
 - **Announcements: one stitched clip fixes the stutter.** On high-latency speakers (some tablets/cast devices) each separate sound/TTS call took several seconds to start, so the chime→speech→chime→message sequence dragged on. Now the whole sequence is stitched into a single audio clip (via ffmpeg) and played with **one** call, so the device's startup lag is paid once and it plays gaplessly. Falls back to separate clips if stitching isn't available. Timing diagnostics are logged when Debug mode is on.
