@@ -9,6 +9,10 @@ Install via HACS (custom repository, category **Integration**), restart, then ad
 
 ## Changelog
 
+### v1.0.77
+
+- **Fullscreen card saved state.** Added an internal `fullscreen_states` per-device setting so the new Ted's Cards **Fullscreen Card** can remember whether each card is normal or maximized across reloads. Pairs with Ted's Cards v1.0.303+.
+
 ### v1.0.76
 
 - **Recent announcements are now per-device.** Each sending device keeps its own recent-announcement history (deduped and capped independently), so a busy device no longer evicts another device's recents. Pairs with Ted's Cards v1.0.302+.

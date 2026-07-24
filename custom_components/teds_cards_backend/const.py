@@ -167,6 +167,9 @@ SETTINGS_DEFAULTS = {
     # Internal: per-device "day" snapshot the frontend stores while night mode is active so it can
     # restore brightness/color temp/on-off in the morning (or on disable). Not a user-facing field.
     "night_day_snapshot": None,
+    # Internal: per-device saved maximized state of Fullscreen cards, keyed by each card's
+    # `state_key`. Shape: { <state_key>: bool }. Not a user-facing field.
+    "fullscreen_states": {},
     # Background Wallpaper — applied by the invisible ted-background-card.
     # mode: solid | image | slideshow | theme (theme = defer to the HA theme's background).
     "background_mode": "slideshow",
